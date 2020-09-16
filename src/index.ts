@@ -572,14 +572,23 @@ export default class TextileChat {
     );
   };
   
-  async getContacts () {
+  async getContacts (cb) {
     if(!this.client || !this.threadId) return;
     const emitter = new EventEmitter();
+    emitter.on('contacts', cb)
+    const contacts: {domain: string, id: string}[] = [];
     this.client.find(this.threadId, "contacts", {}).then((result) => {
-      emitter.emit('contacts', result.instancesList.map((contact) => {
-        return { domain: contact.domain, id: contact._id };
-      }));
+      result.instancesList.map((contact) => {
+        contacts.push({ domain: contact.domain, id: contact._id });
+      });
+      emitter.emit('contacts', contacts);
     });
+    this.client.listen(this.threadId, [{collectionName: 'contacts'}], async (contact) => {
+      if(!contact?.instance) return;
+      contacts.push({ domain: contact.instance.domain, id: contact.instance._id });
+      emitter.emit('contacts', contacts);
+    })
+
   };
   
   async sendContactInvite (contactDomain: string) {
@@ -605,8 +614,10 @@ export default class TextileChat {
     );
   };
   
-  async getInvites () {
+  async getInvites (cb) {
     if(!this.users || !this.identity) return;
+    const emitter = new EventEmitter();
+    emitter.on('invites', cb)
     const messages = await this.users.listInboxMessages();
     const privateKey = PrivateKey.fromString(this.identity.toString())
     const contactInvites = (
@@ -622,6 +633,8 @@ export default class TextileChat {
         })
       )
     ).filter((x): x is InviteMessage => x !== null);
+    emitter.emit('invites', contactInvites);
+
     handleAcceptedContactInvites({
       identity: this.identity,
       threadId: this.threadId,
@@ -629,7 +642,41 @@ export default class TextileChat {
       users: this.users,
       client: this.client
     });
-    return contactInvites;
+
+    //LISTEN FOR NEW INVITES
+    const mailboxID = await this.users.getMailboxID();
+    this.users.watchInbox(mailboxID, async (reply) => {
+      if (reply && reply.message) {
+        const message = reply.message;
+        const body: InviteMessageBody = JSON.parse(
+          new TextDecoder().decode(await privateKey.decrypt(message.body))
+        );
+        if (body.type === "ContactInvite") {
+          const contactInviteMessage: InviteMessage = {
+            body,
+            from: message.from,
+            id: message.id,
+          };
+          contactInvites.push(contactInviteMessage);
+          emitter.emit('invites', contactInviteMessage);
+        }
+        if (body.type === "ContactInviteAccepted") {
+          const contactAcceptedMessage: InviteMessage = {
+            body,
+            from: message.from,
+            id: message.id,
+          };
+          handleAcceptedContactInvite({
+            signer: this.signer,
+            contactAcceptedMessage,
+            identity: privateKey,
+            client: this.client,
+            threadId: this.threadId,
+            users: this.users,
+          })
+        }
+      }
+    });
   };
   
   async acceptContactInvite (contactInviteMessage) {
@@ -681,74 +728,102 @@ export default class TextileChat {
     ]);
   };
   
-  const loadContactMessages = async (
-    pubKey,
-    client,
-    threadId,
-    decryptKey,
-    name,
-    index,
-  }: {
-    index: number;
-    pubKey: string;
-    client: Client;
-    threadId: ThreadID;
-    decryptKey: PrivateKey;
-    name: string;
-  }) => {
+  async loadContactMessages (contactDomain, index, cb){
+    if(!this.client || !this.threadId || !this.userAuth || !this.identity || !this.signer) return;
     const emitter = new EventEmitter();
-    const collectionName = pubKey + "-" + index.toString();
-    const msgs = (await client.find(threadId, collectionName, {})).instancesList;
-    const messageList: Message[] = [];
-    await Promise.all(
-      msgs.map(async (msg) => {
-        const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
-        messageList.push({
-          body: decryptedBody,
-          time: msg.time,
-          owner: name,
-          id: msg._id,
-        });
-      })
-    );
-    messageList.sort((a, b) => a.time - b.time);
-    return messageList;
-  };
-  
-  const listenForMessages = async ({
-    pubKey,
-    client,
-    threadId,
-    decryptKey,
-    name,
-    index,
-    cb,
-  }: {
-    index: number;
-    pubKey: string;
-    client: Client;
-    threadId: ThreadID;
-    decryptKey: PrivateKey;
-    name: string;
-    cb: (msgs: Message[]) => void;
-  }) => {
-    const collectionName = pubKey + "-" + index.toString();
-    const emitter = new events.EventEmitter();
     emitter.on("newMessage", cb);
-    client.listen(threadId, [{ collectionName }], async (msg: any) => {
-      if (!msg.instance) {
-        return;
+    const _contactPubKey = await getDomainPubKey(
+      this.signer.provider!,
+      contactDomain
+    );
+    const _messagesIndex = await getMessagesIndex({
+      client: this.client,
+      threadId: this.threadId,
+      pubKey: _contactPubKey,
+    });
+    const _contactClient = await Client.withUserAuth(this.userAuth);
+    try {
+      // TODO: Ask textile about dbInfo
+      await _contactClient.joinFromInfo(JSON.parse(_messagesIndex.dbInfo));
+    } catch (e) {
+      if (e.message === "db already exists") {
+        // ignore, probably using same textile id
+      } else {
+        throw new Error(e.message);
       }
-      const decryptedBody = await decryptAndDecode(decryptKey, msg.instance.body);
-      emitter.emit("newMessage", [
-        {
+    }
+    const contactThreadId = ThreadID.fromString(_messagesIndex.threadId);
+    const contactMessageIndex: MessagesIndex = await getMessagesIndex(
+      {
+        client: _contactClient,
+        threadId: contactThreadId,
+        pubKey: this.identity.public.toString(),
+      }
+    );
+    const privateKey = PrivateKey.fromString(this.identity.toString())
+    const ownerDecryptKey = new PrivateKey(
+      await decrypt(privateKey, _messagesIndex.ownerDecryptKey)
+    );
+    const readerDecryptKey = new PrivateKey(
+      await decrypt(privateKey, contactMessageIndex.readerDecryptKey)
+    );
+
+    const loadMessages = async (
+      pubKey,
+      client,
+      threadId,
+      decryptKey,
+      name,
+      index
+    ) => {
+      const collectionName = pubKey + "-" + index.toString();
+      const msgs = (await client.find(threadId, collectionName, {})).instancesList;
+      const messageList: Message[] = [];
+      await Promise.all(
+        msgs.map(async (msg) => {
+          const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
+          messageList.push({
+            body: decryptedBody,
+            time: msg.time,
+            owner: name,
+            id: msg._id,
+          });
+        })
+      );
+      messageList.sort((a, b) => a.time - b.time);
+      emitter.emit('newMessage', messageList);
+      client.listen(threadId, [{ collectionName }], async (msg: any) => {
+        if (!msg.instance) {
+          return;
+        }
+        const decryptedBody = await decryptAndDecode(decryptKey, msg.instance.body);
+        messageList.push({
           body: decryptedBody,
           time: msg.instance.time,
           owner: name,
           id: msg._id,
-        },
-      ]);
-    });
+        })
+        messageList.sort((a, b) => a.time - b.time);
+        emitter.emit('newMessage', messageList);
+      });
+    }
+    loadMessages(
+      _contactPubKey,
+      this.client,
+      this.threadId,
+      ownerDecryptKey,
+      this.domain,
+      index,
+    );
+    loadMessages(
+      this.identity.public.toString(),
+      _contactClient,
+      contactThreadId,
+      readerDecryptKey,
+      contactDomain,
+      index
+    );
+
   };
 
 }
