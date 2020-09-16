@@ -49,7 +49,7 @@
     "rimraf": "^2.6.2"
   },
   "dependencies": {
-    "@peculiar/webcrypto": "^1.1.1",
-    "gun": "git://github.com/amark/gun.git#master"
+    "@textile/hub": "^0.6.2",
+    "ethers": "^5.0.13"
   }
 }
