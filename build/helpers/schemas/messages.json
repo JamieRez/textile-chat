@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Message",
+    "type": "object",
+    "properties": {
+        "_id": {
+            "type": "string"
+        },
+        "body": {
+            "type": "string"
+        },
+        "time": {
+            "type": "number"
+        }
+    }
+}
