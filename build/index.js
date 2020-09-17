@@ -71,15 +71,16 @@ var TextileChat = /** @class */ (function () {
         this.contactsList = [];
         this.contactInvitesList = [];
     }
-    TextileChat.prototype.join = function (username, password, domain) {
+    TextileChat.prototype.join = function (domain) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             return __generator(this, function (_a) {
                 return [2 /*return*/, new Promise(function (resolve) { return __awaiter(_this, void 0, void 0, function () {
-                        var provider, signer, identity, domainPubKey, userAuth, client_1, users, threadId_1, thread, _a;
+                        var provider, signer, identity, domainPubKey, userAuth, client_1, users, threadId_1, thread, _a, mailboxId;
                         return __generator(this, function (_b) {
                             switch (_b.label) {
                                 case 0:
+                                    this.domain = domain;
                                     if (!window.ethereum) {
                                         return [2 /*return*/, window.alert("Unable to detect a web3 wallet. Visit https://metamask.io/ to download a web3 compatible wallet.")];
                                     }
@@ -98,32 +99,38 @@ var TextileChat = /** @class */ (function () {
                                     return [4 /*yield*/, index_1.configureDomain(identity, this.domain, signer)];
                                 case 4:
                                     _b.sent();
-                                    return [3 /*break*/, 13];
+                                    return [3 /*break*/, 18];
                                 case 5:
-                                    if (!(identity.public.toString() === domainPubKey)) return [3 /*break*/, 12];
+                                    if (!(identity.public.toString() === domainPubKey)) return [3 /*break*/, 17];
                                     return [4 /*yield*/, index_1.auth(identity, this.domain, signer)];
                                 case 6:
                                     userAuth = _b.sent();
                                     client_1 = hub_1.Client.withUserAuth(userAuth);
                                     users = hub_1.Users.withUserAuth(userAuth);
-                                    threadId_1 = hub_1.ThreadID.fromRandom();
-                                    _b.label = 7;
+                                    return [4 /*yield*/, users.getToken(identity)];
                                 case 7:
-                                    _b.trys.push([7, 9, , 11]);
-                                    return [4 /*yield*/, client_1.getThread("unstoppable-chat")];
+                                    _b.sent();
+                                    return [4 /*yield*/, client_1.getToken(identity)];
                                 case 8:
+                                    _b.sent();
+                                    threadId_1 = hub_1.ThreadID.fromRandom();
+                                    _b.label = 9;
+                                case 9:
+                                    _b.trys.push([9, 11, , 13]);
+                                    return [4 /*yield*/, client_1.getThread("unstoppable-chat")];
+                                case 10:
                                     thread = _b.sent();
                                     if (thread) {
                                         threadId_1 = hub_1.ThreadID.fromString(thread.id);
                                     }
-                                    return [3 /*break*/, 11];
-                                case 9:
+                                    return [3 /*break*/, 13];
+                                case 11:
                                     _a = _b.sent();
                                     return [4 /*yield*/, client_1.newDB(threadId_1, "unstoppable-chat")];
-                                case 10:
+                                case 12:
                                     threadId_1 = _b.sent();
-                                    return [3 /*break*/, 11];
-                                case 11:
+                                    return [3 /*break*/, 13];
+                                case 13:
                                     this.identity = identity;
                                     this.userAuth = userAuth;
                                     this.signer = signer;
@@ -135,12 +142,21 @@ var TextileChat = /** @class */ (function () {
                                         .catch(function () {
                                         return client_1.newCollection(threadId_1, "contacts", schemas_1.default.contacts);
                                     });
+                                    return [4 /*yield*/, users.getMailboxID().catch(function () { return null; })];
+                                case 14:
+                                    mailboxId = _b.sent();
+                                    if (!!mailboxId) return [3 /*break*/, 16];
+                                    return [4 /*yield*/, users.setupMailbox()];
+                                case 15:
+                                    _b.sent();
+                                    _b.label = 16;
+                                case 16:
                                     resolve();
-                                    return [3 /*break*/, 13];
-                                case 12:
+                                    return [3 /*break*/, 18];
+                                case 17:
                                     window.alert("Domain record does not match id. Would you like to reconfigure your domain?");
-                                    _b.label = 13;
-                                case 13: return [2 /*return*/];
+                                    _b.label = 18;
+                                case 18: return [2 /*return*/];
                             }
                         });
                     }); })];

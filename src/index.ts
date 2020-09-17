@@ -48,8 +48,9 @@ export default class TextileChat {
     this.contactInvitesList = [];
   }
 
-  async join(username: string, password: string, domain: string) {
+  async join(domain: string) {
     return new Promise(async (resolve) => {
+      this.domain = domain;
       if (!(window as any).ethereum) {
         return window.alert(
           "Unable to detect a web3 wallet. Visit https://metamask.io/ to download a web3 compatible wallet."
@@ -68,6 +69,8 @@ export default class TextileChat {
         const userAuth = await auth(identity, this.domain, signer);
         const client = Client.withUserAuth(userAuth);
         const users = Users.withUserAuth(userAuth);
+        await users.getToken(identity);
+        await client.getToken(identity);
         let threadId: ThreadID = ThreadID.fromRandom();
         try {
           const thread = await client.getThread("unstoppable-chat");
@@ -88,7 +91,10 @@ export default class TextileChat {
           .catch(() => {
             return client.newCollection(threadId, "contacts", schemas.contacts);
           })
-        
+        const mailboxId = await users.getMailboxID().catch(() => null);
+        if (!mailboxId) {
+          await users.setupMailbox();
+        }
         resolve();
       } else {
         window.alert(

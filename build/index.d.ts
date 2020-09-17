@@ -12,7 +12,7 @@ export default class TextileChat {
     threadId: ThreadID;
     users: Users;
     constructor();
-    join(username: string, password: string, domain: string): Promise<unknown>;
+    join(domain: string): Promise<unknown>;
     deleteContacts(contactIds: string[]): Promise<void> | undefined;
     deleteAllContacts(): Promise<void>;
     getContacts(cb: any): Promise<void>;
