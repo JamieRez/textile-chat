@@ -446,7 +446,7 @@ var TextileChat = /** @class */ (function () {
     ;
     TextileChat.prototype.loadContactMessages = function (contactDomain, index, cb) {
         return __awaiter(this, void 0, void 0, function () {
-            var emitter, _contactPubKey, _messagesIndex, _contactClient, e_1, contactThreadId, contactMessageIndex, privateKey, ownerDecryptKey, _a, readerDecryptKey, _b, loadMessages;
+            var emitter, _contactPubKey, _messagesIndex, _contactClient, e_1, contactThreadId, contactMessageIndex, privateKey, ownerDecryptKey, _a, readerDecryptKey, _b, messageList, loadMessages;
             var _this = this;
             return __generator(this, function (_c) {
                 switch (_c.label) {
@@ -504,8 +504,9 @@ var TextileChat = /** @class */ (function () {
                         return [4 /*yield*/, index_1.decrypt(privateKey, contactMessageIndex.readerDecryptKey)];
                     case 10:
                         readerDecryptKey = new (_b.apply(hub_1.PrivateKey, [void 0, _c.sent()]))();
+                        messageList = [];
                         loadMessages = function (pubKey, client, threadId, decryptKey, name, index) { return __awaiter(_this, void 0, void 0, function () {
-                            var collectionName, msgs, messageList;
+                            var collectionName, msgs;
                             var _this = this;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
@@ -514,7 +515,6 @@ var TextileChat = /** @class */ (function () {
                                         return [4 /*yield*/, client.find(threadId, collectionName, {})];
                                     case 1:
                                         msgs = (_a.sent()).instancesList;
-                                        messageList = [];
                                         return [4 /*yield*/, Promise.all(msgs.map(function (msg) { return __awaiter(_this, void 0, void 0, function () {
                                                 var decryptedBody;
                                                 return __generator(this, function (_a) {
