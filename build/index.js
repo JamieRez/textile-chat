@@ -163,30 +163,28 @@ var TextileChat = /** @class */ (function () {
             });
         });
     };
-    TextileChat.prototype.deleteContacts = function (contactIds) {
-        if (!this.client || !this.threadId)
-            return;
-        return this.client.delete(this.threadId, "contacts", contactIds);
-    };
-    ;
-    TextileChat.prototype.deleteAllContacts = function () {
+    TextileChat.prototype.deleteContact = function (contactDomain) {
         return __awaiter(this, void 0, void 0, function () {
-            var contacts;
+            var q, contact;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         if (!this.client || !this.threadId)
                             return [2 /*return*/];
-                        return [4 /*yield*/, this.client.find(this.threadId, "contacts", {})];
+                        q = new hub_1.Where("domain").eq(contactDomain);
+                        return [4 /*yield*/, this.client.find(this.threadId, 'contacts', q)];
                     case 1:
-                        contacts = _a.sent();
-                        this.deleteContacts(contacts.instancesList.map(function (contact) { return contact._id; }));
-                        return [2 /*return*/];
+                        contact = (_a.sent()).instancesList[0];
+                        if (!contact) return [3 /*break*/, 3];
+                        return [4 /*yield*/, this.client.delete(this.threadId, "contacts", [contact._id])];
+                    case 2:
+                        _a.sent();
+                        _a.label = 3;
+                    case 3: return [2 /*return*/];
                 }
             });
         });
     };
-    ;
     TextileChat.prototype.getContacts = function (cb) {
         return __awaiter(this, void 0, void 0, function () {
             var emitter, contacts;
@@ -410,20 +408,30 @@ var TextileChat = /** @class */ (function () {
         });
     };
     ;
-    TextileChat.prototype.sendMessage = function (contactPubKey, msg, msgIndex, index) {
+    TextileChat.prototype.sendMessage = function (contactDomain, msg, index) {
         return __awaiter(this, void 0, void 0, function () {
-            var pubKey, message, _a;
+            var contactPubKey, msgIndex, pubKey, message, _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         if (!this.client || !this.threadId)
                             return [2 /*return*/];
+                        return [4 /*yield*/, index_1.getDomainPubKey(this.signer.provider, contactDomain)];
+                    case 1:
+                        contactPubKey = _b.sent();
+                        return [4 /*yield*/, messages.getIndex({
+                                client: this.client,
+                                threadId: this.threadId,
+                                pubKey: contactPubKey,
+                            })];
+                    case 2:
+                        msgIndex = _b.sent();
                         pubKey = hub_1.PublicKey.fromString(msgIndex.encryptKey);
                         _a = {
                             time: Date.now()
                         };
                         return [4 /*yield*/, index_1.encrypt(pubKey, msg)];
-                    case 1:
+                    case 3:
                         message = (_a.body = _b.sent(),
                             _a.owner = "",
                             _a.id = "",

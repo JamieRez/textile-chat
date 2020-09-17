@@ -13,13 +13,12 @@ export default class TextileChat {
     users: Users;
     constructor();
     join(domain: string): Promise<unknown>;
-    deleteContacts(contactIds: string[]): Promise<void> | undefined;
-    deleteAllContacts(): Promise<void>;
+    deleteContact(contactDomain: string): Promise<void>;
     getContacts(cb: any): Promise<void>;
     sendContactInvite(contactDomain: string): Promise<void>;
     getInvites(cb: any): Promise<void>;
     acceptContactInvite(contactInviteMessage: any): Promise<void>;
     declineInvite(contactInviteMessage: any): Promise<void>;
-    sendMessage(contactPubKey: any, msg: any, msgIndex: any, index: any): Promise<string[] | undefined>;
+    sendMessage(contactDomain: any, msg: any, index: any): Promise<string[] | undefined>;
     loadContactMessages(contactDomain: any, index: any, cb: any): Promise<void>;
 }

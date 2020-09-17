@@ -112,21 +112,6 @@ export default class TextileChat {
       await this.client.delete(this.threadId, "contacts", [contact._id]);
     }
   }
-
-  deleteContacts(
-    contactIds: string[]
-  ) {
-    if(!this.client || !this.threadId) return;
-    return this.client.delete(this.threadId, "contacts", contactIds);
-  };
-  
-  async deleteAllContacts () {
-    if(!this.client || !this.threadId) return;
-    const contacts = await this.client.find(this.threadId, "contacts", {});
-    this.deleteContacts(
-      contacts.instancesList.map((contact) => contact._id)
-    );
-  };
   
   async getContacts (cb) {
     if(!this.client || !this.threadId) return;
