@@ -318,6 +318,8 @@ export default class TextileChat {
       await decrypt(privateKey, contactMessageIndex.readerDecryptKey)
     );
 
+    const messageList: messages.Message[] = [];
+
     const loadMessages = async (
       pubKey,
       client,
@@ -328,7 +330,6 @@ export default class TextileChat {
     ) => {
       const collectionName = pubKey + "-" + index.toString();
       const msgs = (await client.find(threadId, collectionName, {})).instancesList;
-      const messageList: messages.Message[] = [];
       await Promise.all(
         msgs.map(async (msg) => {
           const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
