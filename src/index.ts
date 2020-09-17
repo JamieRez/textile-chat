@@ -104,6 +104,15 @@ export default class TextileChat {
     })
   }
 
+  async deleteContact(contactDomain: string){
+    if(!this.client || !this.threadId) return;
+    const q = new Where("domain").eq(contactDomain);
+    const contact = (await this.client.find(this.threadId, 'contacts', q)).instancesList[0];
+    if(contact) {
+      await this.client.delete(this.threadId, "contacts", [contact._id]);
+    }
+  }
+
   deleteContacts(
     contactIds: string[]
   ) {
@@ -261,8 +270,17 @@ export default class TextileChat {
     await this.users.deleteInboxMessage(contactInviteMessage.id);
   };
 
-  async sendMessage (contactPubKey, msg, msgIndex, index) {
+  async sendMessage (contactDomain, msg, index) {
     if(!this.client || !this.threadId) return;
+    const contactPubKey = await getDomainPubKey(
+      this.signer.provider!,
+      contactDomain
+    );
+    const msgIndex = await messages.getIndex({
+      client: this.client,
+      threadId: this.threadId,
+      pubKey: contactPubKey,
+    });
     const pubKey = PublicKey.fromString(msgIndex.encryptKey);
     const message: messages.Message = {
       time: Date.now(),
