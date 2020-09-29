@@ -117,7 +117,7 @@ var TextileChat = /** @class */ (function () {
                                     _b.label = 9;
                                 case 9:
                                     _b.trys.push([9, 11, , 13]);
-                                    return [4 /*yield*/, users.getThread("unstoppable-textile-chat")];
+                                    return [4 /*yield*/, users.getThread("unstoppable-chat")];
                                 case 10:
                                     thread = _b.sent();
                                     if (thread) {
@@ -126,7 +126,7 @@ var TextileChat = /** @class */ (function () {
                                     return [3 /*break*/, 13];
                                 case 11:
                                     _a = _b.sent();
-                                    return [4 /*yield*/, client_1.newDB(threadId_1, "unstoppable-textile-chat")];
+                                    return [4 /*yield*/, client_1.newDB(threadId_1, "unstoppable-chat")];
                                 case 12:
                                     threadId_1 = _b.sent();
                                     return [3 /*break*/, 13];
