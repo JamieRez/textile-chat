@@ -45,7 +45,7 @@ const deleteAllContacts = async (client: Client, threadId: ThreadID) => {
   deleteContacts(
     client,
     threadId,
-    contacts.instancesList.map((contact) => contact._id)
+    contacts.map((contact: any) => contact._id)
   );
 };
 
@@ -54,7 +54,7 @@ const getContacts = async (
   threadId: ThreadID
 ): Promise<{ id: string; domain: string }[]> => {
   return client.find(threadId, "contacts", {}).then((result) => {
-    return result.instancesList.map((contact) => {
+    return result.map((contact: any) => {
       return { domain: contact.domain, id: contact._id };
     });
   });
@@ -141,12 +141,24 @@ const configure = async ({
   users: Users;
   client: Client;
 }) => {
+
   return client
     .find(threadId, "contacts", {})
     .catch(() => {
-      return client.newCollection(threadId, "contacts", schemas.contacts);
-    })
-    .then(() => {
+      return client.newCollection(threadId, {
+        name: "contacts",
+        schema: schemas.contacts,
+        writeValidator: ((writer, e, instance) => {
+          console.log(writer);
+          console.log(identity.toString());
+          if(writer === identity.toString()){
+            return true;
+          } else { 
+            return false;
+          }
+        })
+      })
+    }).then(() => {
       return handleAcceptedInvites({
         identity,
         threadId,

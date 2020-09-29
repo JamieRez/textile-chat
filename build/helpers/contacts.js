@@ -75,7 +75,7 @@ var deleteAllContacts = function (client, threadId) { return __awaiter(void 0, v
             case 0: return [4 /*yield*/, client.find(threadId, "contacts", {})];
             case 1:
                 contacts = _a.sent();
-                deleteContacts(client, threadId, contacts.instancesList.map(function (contact) { return contact._id; }));
+                deleteContacts(client, threadId, contacts.map(function (contact) { return contact._id; }));
                 return [2 /*return*/];
         }
     });
@@ -83,7 +83,7 @@ var deleteAllContacts = function (client, threadId) { return __awaiter(void 0, v
 var getContacts = function (client, threadId) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         return [2 /*return*/, client.find(threadId, "contacts", {}).then(function (result) {
-                return result.instancesList.map(function (contact) {
+                return result.map(function (contact) {
                     return { domain: contact.domain, id: contact._id };
                 });
             })];
@@ -142,9 +142,21 @@ var configure = function (_a) {
             return [2 /*return*/, client
                     .find(threadId, "contacts", {})
                     .catch(function () {
-                    return client.newCollection(threadId, "contacts", schemas_1.default.contacts);
-                })
-                    .then(function () {
+                    return client.newCollection(threadId, {
+                        name: "contacts",
+                        schema: schemas_1.default.contacts,
+                        writeValidator: (function (writer, e, instance) {
+                            console.log(writer);
+                            console.log(identity.toString());
+                            if (writer === identity.toString()) {
+                                return true;
+                            }
+                            else {
+                                return false;
+                            }
+                        })
+                    });
+                }).then(function () {
                     return handleAcceptedInvites({
                         identity: identity,
                         threadId: threadId,

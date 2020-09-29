@@ -73,9 +73,9 @@ export default class TextileChat {
         await client.getToken(identity);
         let threadId: ThreadID = ThreadID.fromRandom();
         try {
-          const thread = await client.getThread("unstoppable-chat");
+          const thread = await users.getThread("unstoppable-chat");
           if (thread) {
-            threadId = ThreadID.fromString(thread.id);
+            threadId = thread.id;
           }
         } catch {
           threadId = await client.newDB(threadId, "unstoppable-chat");
@@ -86,10 +86,23 @@ export default class TextileChat {
         this.threadId = threadId;
         this.client = client;
         this.users = users;
+        await client.deleteCollection(threadId, 'contacts');
         client
           .find(threadId, "contacts", {})
           .catch(() => {
-            return client.newCollection(threadId, "contacts", schemas.contacts);
+            return client.newCollection(threadId, {
+              name: "contacts",
+              schema: schemas.contacts,
+              writeValidator: ((writer, e, instance) => {
+                console.log(writer);
+                console.log(identity.toString());
+                if(writer === identity.toString()){
+                  return true;
+                } else { 
+                  return false;
+                }
+              })
+            })
           })
         const mailboxId = await users.getMailboxID().catch(() => null);
         if (!mailboxId) {
@@ -107,7 +120,7 @@ export default class TextileChat {
   async deleteContact(contactDomain: string){
     if(!this.client || !this.threadId) return;
     const q = new Where("domain").eq(contactDomain);
-    const contact = (await this.client.find(this.threadId, 'contacts', q)).instancesList[0];
+    const contact: any = (await this.client.find(this.threadId, 'contacts', q))[0];
     if(contact) {
       await this.client.delete(this.threadId, "contacts", [contact._id]);
     }
@@ -119,7 +132,7 @@ export default class TextileChat {
     emitter.on('contacts', cb)
     const contacts: {domain: string, id: string}[] = [];
     this.client.find(this.threadId, "contacts", {}).then((result) => {
-      result.instancesList.map((contact) => {
+      result.map((contact: any) => {
         contacts.push({ domain: contact.domain, id: contact._id });
       });
       emitter.emit('contacts', contacts);

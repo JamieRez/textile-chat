@@ -33,7 +33,7 @@ declare const collectionCreate: ({ indexNumber, client, threadId, contactPubKey,
     indexNumber: number;
     client: Client;
     contactPubKey: string;
-}) => Promise<void | import("@textile/threads-client").InstanceList<any>>;
+}) => Promise<void | unknown[]>;
 declare const sendMessage: ({ messagesIndex, client, threadId, index, contactPubKey, msg, }: {
     msg: string;
     threadId: ThreadID;

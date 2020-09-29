@@ -109,8 +109,8 @@ const getIndex = async ({
   pubKey: string;
 }): Promise<MessagesIndex> => {
   const q = new Where("_id").eq("index");
-  const collection = await client.find(threadId, pubKey + "-index", q);
-  return collection.instancesList[0];
+  const collection: any = await client.find(threadId, pubKey + "-index", q);
+  return collection[0];
 };
 
 const collectionCreate = async ({
@@ -177,7 +177,7 @@ const loadMessages = async ({
   name: string;
 }) => {
   const collectionName = pubKey + "-" + index.toString();
-  const msgs = (await client.find(threadId, collectionName, {})).instancesList;
+  const msgs: any[] = (await client.find(threadId, collectionName, {}));
   const messageList: Message[] = [];
   await Promise.all(
     msgs.map(async (msg) => {

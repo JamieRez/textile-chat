@@ -99,9 +99,9 @@ var TextileChat = /** @class */ (function () {
                                     return [4 /*yield*/, index_1.configureDomain(identity, this.domain, signer)];
                                 case 4:
                                     _b.sent();
-                                    return [3 /*break*/, 18];
+                                    return [3 /*break*/, 19];
                                 case 5:
-                                    if (!(identity.public.toString() === domainPubKey)) return [3 /*break*/, 17];
+                                    if (!(identity.public.toString() === domainPubKey)) return [3 /*break*/, 18];
                                     return [4 /*yield*/, index_1.auth(identity, this.domain, signer)];
                                 case 6:
                                     userAuth = _b.sent();
@@ -117,16 +117,16 @@ var TextileChat = /** @class */ (function () {
                                     _b.label = 9;
                                 case 9:
                                     _b.trys.push([9, 11, , 13]);
-                                    return [4 /*yield*/, client_1.getThread("unstoppable-chat")];
+                                    return [4 /*yield*/, users.getThread("unstoppable-textile-chat")];
                                 case 10:
                                     thread = _b.sent();
                                     if (thread) {
-                                        threadId_1 = hub_1.ThreadID.fromString(thread.id);
+                                        threadId_1 = thread.id;
                                     }
                                     return [3 /*break*/, 13];
                                 case 11:
                                     _a = _b.sent();
-                                    return [4 /*yield*/, client_1.newDB(threadId_1, "unstoppable-chat")];
+                                    return [4 /*yield*/, client_1.newDB(threadId_1, "unstoppable-textile-chat")];
                                 case 12:
                                     threadId_1 = _b.sent();
                                     return [3 /*break*/, 13];
@@ -137,26 +137,42 @@ var TextileChat = /** @class */ (function () {
                                     this.threadId = threadId_1;
                                     this.client = client_1;
                                     this.users = users;
+                                    return [4 /*yield*/, client_1.deleteCollection(threadId_1, 'contacts')];
+                                case 14:
+                                    _b.sent();
                                     client_1
                                         .find(threadId_1, "contacts", {})
                                         .catch(function () {
-                                        return client_1.newCollection(threadId_1, "contacts", schemas_1.default.contacts);
+                                        return client_1.newCollection(threadId_1, {
+                                            name: "contacts",
+                                            schema: schemas_1.default.contacts,
+                                            writeValidator: (function (writer, e, instance) {
+                                                console.log(writer);
+                                                console.log(identity.toString());
+                                                if (writer === identity.toString()) {
+                                                    return true;
+                                                }
+                                                else {
+                                                    return false;
+                                                }
+                                            })
+                                        });
                                     });
                                     return [4 /*yield*/, users.getMailboxID().catch(function () { return null; })];
-                                case 14:
-                                    mailboxId = _b.sent();
-                                    if (!!mailboxId) return [3 /*break*/, 16];
-                                    return [4 /*yield*/, users.setupMailbox()];
                                 case 15:
-                                    _b.sent();
-                                    _b.label = 16;
+                                    mailboxId = _b.sent();
+                                    if (!!mailboxId) return [3 /*break*/, 17];
+                                    return [4 /*yield*/, users.setupMailbox()];
                                 case 16:
-                                    resolve();
-                                    return [3 /*break*/, 18];
+                                    _b.sent();
+                                    _b.label = 17;
                                 case 17:
+                                    resolve();
+                                    return [3 /*break*/, 19];
+                                case 18:
                                     window.alert("Domain record does not match id. Would you like to reconfigure your domain?");
-                                    _b.label = 18;
-                                case 18: return [2 /*return*/];
+                                    _b.label = 19;
+                                case 19: return [2 /*return*/];
                             }
                         });
                     }); })];
@@ -174,7 +190,7 @@ var TextileChat = /** @class */ (function () {
                         q = new hub_1.Where("domain").eq(contactDomain);
                         return [4 /*yield*/, this.client.find(this.threadId, 'contacts', q)];
                     case 1:
-                        contact = (_a.sent()).instancesList[0];
+                        contact = (_a.sent())[0];
                         if (!contact) return [3 /*break*/, 3];
                         return [4 /*yield*/, this.client.delete(this.threadId, "contacts", [contact._id])];
                     case 2:
@@ -196,7 +212,7 @@ var TextileChat = /** @class */ (function () {
                 emitter.on('contacts', cb);
                 contacts = [];
                 this.client.find(this.threadId, "contacts", {}).then(function (result) {
-                    result.instancesList.map(function (contact) {
+                    result.map(function (contact) {
                         contacts.push({ domain: contact.domain, id: contact._id });
                     });
                     emitter.emit('contacts', contacts);
