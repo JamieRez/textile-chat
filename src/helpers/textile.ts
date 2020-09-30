@@ -7,6 +7,7 @@ import {
   Client,
   Query,
   PublicKey,
+  CollectionConfig
 } from "@textile/hub";
 import { setRecord, getRecord } from ".";
 import { fromHexString } from ".";
@@ -120,17 +121,20 @@ const findOrCreateCollection = ({
   collectionName,
   schema,
   query,
+  writeValidator
 }: {
   threadId: ThreadID;
   client: Client;
   collectionName: string;
   schema: Object;
   query?: Query;
+  writeValidator: ((writer: string, event: any, instance: any) => boolean) | string;
 }) => {
   return client.find(threadId, collectionName, query || {}).catch((e) => {
     return client.newCollection(threadId, {
       name: collectionName, 
-      schema
+      schema,
+      writeValidator
     });
   });
 };

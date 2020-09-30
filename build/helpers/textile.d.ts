@@ -5,12 +5,13 @@ declare const configureDomain: (textileId: PrivateKey, domain: string, signer: e
 declare const getDomainPubKey: (provider: ethers.providers.Provider, domain: string) => Promise<any>;
 declare const getAndVerifyDomainPubKey: (provider: ethers.providers.Provider, domain: string, pubKey: string) => Promise<string>;
 declare const auth: (textileId: PrivateKey, domain: string, signer: ethers.Signer) => Promise<UserAuth>;
-declare const findOrCreateCollection: ({ threadId, client, collectionName, schema, query, }: {
+declare const findOrCreateCollection: ({ threadId, client, collectionName, schema, query, writeValidator }: {
     threadId: ThreadID;
     client: Client;
     collectionName: string;
     schema: Object;
     query?: Query | undefined;
+    writeValidator: string | ((writer: string, event: any, instance: any) => boolean);
 }) => Promise<void | unknown[]>;
 declare const decryptAndDecode: (identity: PrivateKey, message: string) => Promise<string>;
 declare const encrypt: (pubKey: PublicKey, message: string) => Promise<string>;

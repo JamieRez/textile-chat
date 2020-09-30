@@ -22,6 +22,9 @@
       "description": "An explanation about the purpose of this instance.",
       "default": "",
       "examples": ["ryan.crypto"]
+    },
+    "owner": {
+      "type": "string"
     }
   },
   "additionalProperties": true

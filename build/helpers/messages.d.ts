@@ -1,4 +1,4 @@
-import { Client, PrivateKey, ThreadID } from "@textile/hub";
+import { Client, PrivateKey, ThreadID, Identity } from "@textile/hub";
 export interface MessagesIndex {
     currentLength: number;
     limit: number;
@@ -8,6 +8,7 @@ export interface MessagesIndex {
     dbInfo: string;
     encryptKey: string;
     _id: "index";
+    owner: string;
 }
 export interface Message {
     body: string;
@@ -15,13 +16,14 @@ export interface Message {
     owner: string | null;
     id: string;
 }
-declare const createIndex: ({ threadId, contactPubKey, client, identity, contactThreadId, contactDbInfo, }: {
+declare const createIndex: ({ threadId, contactPubKey, client, privateKey, contactThreadId, contactDbInfo, identity }: {
     threadId: ThreadID;
     contactPubKey: string;
     client: Client;
-    identity: PrivateKey;
+    privateKey: PrivateKey;
     contactThreadId: string;
     contactDbInfo: string;
+    identity: Identity;
 }) => Promise<MessagesIndex>;
 declare const getIndex: ({ client, threadId, pubKey, }: {
     threadId: ThreadID;

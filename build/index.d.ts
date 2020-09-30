@@ -3,7 +3,7 @@ import { Signer } from "ethers";
 export default class TextileChat {
     domain: string;
     contactsList: [];
-    contactInvitesList: [];
+    contactInvitesList: any[];
     activeContact: string;
     identity: Identity;
     client: Client;

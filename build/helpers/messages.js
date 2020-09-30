@@ -47,27 +47,57 @@ var textile_1 = require("./textile");
 var events_1 = __importDefault(require("events"));
 var CONTACT_INDEX_LIMIT = 50;
 var createIndex = function (_a) {
-    var threadId = _a.threadId, contactPubKey = _a.contactPubKey, client = _a.client, identity = _a.identity, contactThreadId = _a.contactThreadId, contactDbInfo = _a.contactDbInfo;
+    var threadId = _a.threadId, contactPubKey = _a.contactPubKey, client = _a.client, privateKey = _a.privateKey, contactThreadId = _a.contactThreadId, contactDbInfo = _a.contactDbInfo, identity = _a.identity;
     return __awaiter(void 0, void 0, void 0, function () {
         var messagesIndexCollectionName, contact, encryptionWallet, readerDecryptKey, ownerDecryptKey, messagesIndex, e_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     messagesIndexCollectionName = contactPubKey + "-index";
+                    // try{
+                    //   await client.deleteCollection(threadId, messagesIndexCollectionName);
+                    // } catch {
+                    // }
+                    //DELETE THE MESSAGES INDEX
                     return [4 /*yield*/, _1.findOrCreateCollection({
                             client: client,
                             threadId: threadId,
                             collectionName: messagesIndexCollectionName,
                             schema: schemas_1.default.messagesIndex,
+                            writeValidator: (function (writer, event, instance) {
+                                var patch = event.patch.json_patch;
+                                var type = event.patch.type;
+                                if (type === "create") {
+                                    if (writer === patch.owner) {
+                                        return true;
+                                    }
+                                    else {
+                                        return false;
+                                    }
+                                }
+                                else {
+                                    if (writer === instance.owner) {
+                                        return true;
+                                    }
+                                    else {
+                                        return false;
+                                    }
+                                }
+                            })
                         })];
                 case 1:
+                    // try{
+                    //   await client.deleteCollection(threadId, messagesIndexCollectionName);
+                    // } catch {
+                    // }
+                    //DELETE THE MESSAGES INDEX
                     _b.sent();
                     contact = hub_1.PublicKey.fromString(contactPubKey);
                     encryptionWallet = hub_1.PrivateKey.fromRandom();
                     return [4 /*yield*/, contact.encrypt(encryptionWallet.seed)];
                 case 2:
                     readerDecryptKey = (_b.sent()).toString();
-                    return [4 /*yield*/, identity.public.encrypt(encryptionWallet.seed)];
+                    return [4 /*yield*/, privateKey.public.encrypt(encryptionWallet.seed)];
                 case 3:
                     ownerDecryptKey = (_b.sent()).toString();
                     messagesIndex = {
@@ -79,6 +109,7 @@ var createIndex = function (_a) {
                         threadId: contactThreadId,
                         dbInfo: contactDbInfo,
                         _id: "index",
+                        owner: identity.public.toString()
                     };
                     _b.label = 4;
                 case 4:
@@ -105,13 +136,45 @@ var createIndex = function (_a) {
                     })];
                 case 8:
                     _b.sent();
+                    // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
+                    // await client.delete(threadId, messagesIndexCollectionName, m2.map((msg: any) => msg._id));
+                    // try{
+                    //   await client.deleteCollection(threadId, contactPubKey + "-0");
+                    // } catch {
+                    // }
                     return [4 /*yield*/, _1.findOrCreateCollection({
                             client: client,
                             threadId: threadId,
                             collectionName: contactPubKey + "-0",
                             schema: schemas_1.default.messages,
+                            writeValidator: (function (writer, event, instance) {
+                                var patch = event.patch.json_patch;
+                                var type = event.patch.type;
+                                if (type === "create") {
+                                    if (writer === patch.owner) {
+                                        return true;
+                                    }
+                                    else {
+                                        return false;
+                                    }
+                                }
+                                else {
+                                    if (writer === instance.owner) {
+                                        return true;
+                                    }
+                                    else {
+                                        return false;
+                                    }
+                                }
+                            })
                         })];
                 case 9:
+                    // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
+                    // await client.delete(threadId, messagesIndexCollectionName, m2.map((msg: any) => msg._id));
+                    // try{
+                    //   await client.deleteCollection(threadId, contactPubKey + "-0");
+                    // } catch {
+                    // }
                     _b.sent();
                     return [2 /*return*/, messagesIndex];
             }
@@ -147,6 +210,26 @@ var collectionCreate = function (_a) {
                     threadId: threadId,
                     collectionName: collectionName,
                     schema: schemas_1.default.messages,
+                    writeValidator: (function (writer, event, instance) {
+                        var patch = event.patch.json_patch;
+                        var type = event.patch.type;
+                        if (type === "create") {
+                            if (writer === patch.owner) {
+                                return true;
+                            }
+                            else {
+                                return false;
+                            }
+                        }
+                        else {
+                            if (writer === instance.owner) {
+                                return true;
+                            }
+                            else {
+                                return false;
+                            }
+                        }
+                    })
                 })];
         });
     });

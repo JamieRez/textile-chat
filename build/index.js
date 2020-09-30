@@ -61,7 +61,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var hub_1 = require("@textile/hub");
 var ethers_1 = __importDefault(require("ethers"));
 var events_1 = require("events");
-var schemas_1 = __importDefault(require("./helpers/schemas"));
 var index_1 = require("./helpers/index");
 var contacts = __importStar(require("./helpers/contacts"));
 var messages = __importStar(require("./helpers/messages"));
@@ -76,7 +75,7 @@ var TextileChat = /** @class */ (function () {
             var _this = this;
             return __generator(this, function (_a) {
                 return [2 /*return*/, new Promise(function (resolve) { return __awaiter(_this, void 0, void 0, function () {
-                        var provider, signer, identity, domainPubKey, userAuth, client_1, users, threadId_1, thread, _a, mailboxId;
+                        var provider, signer, identity, domainPubKey, userAuth, client, users, threadId, thread, _a, mailboxId;
                         return __generator(this, function (_b) {
                             switch (_b.label) {
                                 case 0:
@@ -105,15 +104,15 @@ var TextileChat = /** @class */ (function () {
                                     return [4 /*yield*/, index_1.auth(identity, this.domain, signer)];
                                 case 6:
                                     userAuth = _b.sent();
-                                    client_1 = hub_1.Client.withUserAuth(userAuth);
+                                    client = hub_1.Client.withUserAuth(userAuth);
                                     users = hub_1.Users.withUserAuth(userAuth);
                                     return [4 /*yield*/, users.getToken(identity)];
                                 case 7:
                                     _b.sent();
-                                    return [4 /*yield*/, client_1.getToken(identity)];
+                                    return [4 /*yield*/, client.getToken(identity)];
                                 case 8:
                                     _b.sent();
-                                    threadId_1 = hub_1.ThreadID.fromRandom();
+                                    threadId = hub_1.ThreadID.fromRandom();
                                     _b.label = 9;
                                 case 9:
                                     _b.trys.push([9, 11, , 13]);
@@ -121,52 +120,42 @@ var TextileChat = /** @class */ (function () {
                                 case 10:
                                     thread = _b.sent();
                                     if (thread) {
-                                        threadId_1 = thread.id;
+                                        threadId = thread.id;
                                     }
                                     return [3 /*break*/, 13];
                                 case 11:
                                     _a = _b.sent();
-                                    return [4 /*yield*/, client_1.newDB(threadId_1, "unstoppable-chat")];
+                                    return [4 /*yield*/, client.newDB(threadId, "unstoppable-chat")];
                                 case 12:
-                                    threadId_1 = _b.sent();
+                                    threadId = _b.sent();
                                     return [3 /*break*/, 13];
                                 case 13:
                                     this.identity = identity;
                                     this.userAuth = userAuth;
                                     this.signer = signer;
-                                    this.threadId = threadId_1;
-                                    this.client = client_1;
+                                    this.threadId = threadId;
+                                    this.client = client;
                                     this.users = users;
-                                    return [4 /*yield*/, client_1.deleteCollection(threadId_1, 'contacts')];
-                                case 14:
-                                    _b.sent();
-                                    client_1
-                                        .find(threadId_1, "contacts", {})
-                                        .catch(function () {
-                                        return client_1.newCollection(threadId_1, {
-                                            name: "contacts",
-                                            schema: schemas_1.default.contacts,
-                                            writeValidator: (function (writer, e, instance) {
-                                                console.log(writer);
-                                                console.log(identity.toString());
-                                                if (writer === identity.toString()) {
-                                                    return true;
-                                                }
-                                                else {
-                                                    return false;
-                                                }
-                                            })
-                                        });
-                                    });
                                     return [4 /*yield*/, users.getMailboxID().catch(function () { return null; })];
-                                case 15:
+                                case 14:
                                     mailboxId = _b.sent();
-                                    if (!!mailboxId) return [3 /*break*/, 17];
+                                    if (!!mailboxId) return [3 /*break*/, 16];
                                     return [4 /*yield*/, users.setupMailbox()];
-                                case 16:
+                                case 15:
                                     _b.sent();
-                                    _b.label = 17;
+                                    _b.label = 16;
+                                case 16: 
+                                //DELETE THE MESSAGES INDEX
+                                // const c: any = await client.find(threadId, "contacts", {});
+                                // await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+                                // await client.deleteCollection(threadId, 'contacts');
+                                return [4 /*yield*/, contacts.configure({ identity: identity, threadId: threadId, signer: signer, users: users, client: client })];
                                 case 17:
+                                    //DELETE THE MESSAGES INDEX
+                                    // const c: any = await client.find(threadId, "contacts", {});
+                                    // await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+                                    // await client.deleteCollection(threadId, 'contacts');
+                                    _b.sent();
                                     resolve();
                                     return [3 /*break*/, 19];
                                 case 18:
@@ -203,7 +192,7 @@ var TextileChat = /** @class */ (function () {
     };
     TextileChat.prototype.getContacts = function (cb) {
         return __awaiter(this, void 0, void 0, function () {
-            var emitter, contacts;
+            var emitter, contacts, q;
             var _this = this;
             return __generator(this, function (_a) {
                 if (!this.client || !this.threadId)
@@ -211,15 +200,17 @@ var TextileChat = /** @class */ (function () {
                 emitter = new events_1.EventEmitter();
                 emitter.on('contacts', cb);
                 contacts = [];
-                this.client.find(this.threadId, "contacts", {}).then(function (result) {
+                q = new hub_1.Where("owner").eq(this.identity.toString());
+                this.client.find(this.threadId, "contacts", q).then(function (result) {
                     result.map(function (contact) {
                         contacts.push({ domain: contact.domain, id: contact._id });
                     });
                     emitter.emit('contacts', contacts);
+                }).catch(function () {
                 });
                 this.client.listen(this.threadId, [{ collectionName: 'contacts' }], function (contact) { return __awaiter(_this, void 0, void 0, function () {
                     return __generator(this, function (_a) {
-                        if (!(contact === null || contact === void 0 ? void 0 : contact.instance))
+                        if (!contact || !contact.instance)
                             return [2 /*return*/];
                         contacts.push({ domain: contact.instance.domain, id: contact.instance._id });
                         emitter.emit('contacts', contacts);
@@ -270,10 +261,10 @@ var TextileChat = /** @class */ (function () {
     ;
     TextileChat.prototype.getInvites = function (cb) {
         return __awaiter(this, void 0, void 0, function () {
-            var emitter, messages, privateKey, contactInvites, mailboxID;
+            var emitter, messages, privateKey, _a, mailboxID;
             var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
                         if (!this.users || !this.identity)
                             return [2 /*return*/];
@@ -281,8 +272,9 @@ var TextileChat = /** @class */ (function () {
                         emitter.on('invites', cb);
                         return [4 /*yield*/, this.users.listInboxMessages()];
                     case 1:
-                        messages = _a.sent();
+                        messages = _b.sent();
                         privateKey = hub_1.PrivateKey.fromString(this.identity.toString());
+                        _a = this;
                         return [4 /*yield*/, Promise.all(messages.map(function (message) { return __awaiter(_this, void 0, void 0, function () {
                                 var body, _a, _b, _c, _d;
                                 return __generator(this, function (_e) {
@@ -301,10 +293,11 @@ var TextileChat = /** @class */ (function () {
                                 });
                             }); }))];
                     case 2:
-                        contactInvites = (_a.sent()).filter(function (x) { return x !== null; });
-                        emitter.emit('invites', contactInvites);
+                        _a.contactInvitesList = (_b.sent()).filter(function (x) { return x !== null; });
+                        emitter.emit('invites', this.contactInvitesList);
                         contacts.handleAcceptedInvites({
-                            identity: privateKey,
+                            privateKey: privateKey,
+                            identity: this.identity,
                             threadId: this.threadId,
                             signer: this.signer,
                             users: this.users,
@@ -312,7 +305,7 @@ var TextileChat = /** @class */ (function () {
                         });
                         return [4 /*yield*/, this.users.getMailboxID()];
                     case 3:
-                        mailboxID = _a.sent();
+                        mailboxID = _b.sent();
                         this.users.watchInbox(mailboxID, function (reply) { return __awaiter(_this, void 0, void 0, function () {
                             var message, body, _a, _b, _c, _d, contactInviteMessage, contactAcceptedMessage;
                             return __generator(this, function (_e) {
@@ -331,8 +324,8 @@ var TextileChat = /** @class */ (function () {
                                                 from: message.from,
                                                 id: message.id,
                                             };
-                                            contactInvites.push(contactInviteMessage);
-                                            emitter.emit('invites', contactInviteMessage);
+                                            this.contactInvitesList.push(contactInviteMessage);
+                                            emitter.emit('invites', this.contactInvitesList);
                                         }
                                         if (body.type === "ContactInviteAccepted") {
                                             contactAcceptedMessage = {
@@ -343,7 +336,8 @@ var TextileChat = /** @class */ (function () {
                                             contacts.handleAcceptedInvite({
                                                 signer: this.signer,
                                                 contactAcceptedMessage: contactAcceptedMessage,
-                                                identity: privateKey,
+                                                identity: this.identity,
+                                                privateKey: privateKey,
                                                 client: this.client,
                                                 threadId: this.threadId,
                                                 users: this.users,
@@ -375,13 +369,13 @@ var TextileChat = /** @class */ (function () {
                     case 2:
                         dbInfo = _a.sent();
                         privateKey = hub_1.PrivateKey.fromString(this.identity.toString());
-                        return [4 /*yield*/, contacts.contactCreate(this.client, this.threadId, contactInviteMessage.body.domain)];
+                        return [4 /*yield*/, contacts.contactCreate(this.client, this.threadId, contactInviteMessage.body.domain, this.identity)];
                     case 3:
                         _a.sent();
                         return [4 /*yield*/, contacts.sendInviteAccepted({
                                 threadId: this.threadId,
                                 users: this.users,
-                                identity: privateKey,
+                                privateKey: privateKey,
                                 dbInfo: dbInfo,
                                 signer: this.signer,
                                 contactInviteMessage: contactInviteMessage,
@@ -392,10 +386,11 @@ var TextileChat = /** @class */ (function () {
                         return [4 /*yield*/, messages.createIndex({
                                 threadId: this.threadId,
                                 contactPubKey: contactPubKey,
-                                identity: privateKey,
+                                privateKey: privateKey,
                                 client: this.client,
                                 contactThreadId: contactInviteMessage.body.threadId,
                                 contactDbInfo: contactInviteMessage.body.dbInfo,
+                                identity: this.identity
                             })];
                     case 5:
                         _a.sent();
@@ -418,6 +413,7 @@ var TextileChat = /** @class */ (function () {
                         return [4 /*yield*/, this.users.deleteInboxMessage(contactInviteMessage.id)];
                     case 1:
                         _a.sent();
+                        this.contactInvitesList.splice(this.contactInvitesList.indexOf(contactInviteMessage), 1);
                         return [2 /*return*/];
                 }
             });
@@ -449,7 +445,7 @@ var TextileChat = /** @class */ (function () {
                         return [4 /*yield*/, index_1.encrypt(pubKey, msg)];
                     case 3:
                         message = (_a.body = _b.sent(),
-                            _a.owner = "",
+                            _a.owner = this.identity.public.toString(),
                             _a.id = "",
                             _a);
                         return [2 /*return*/, this.client.create(this.threadId, contactPubKey + "-" + index.toString(), [
@@ -522,13 +518,14 @@ var TextileChat = /** @class */ (function () {
                         readerDecryptKey = new (_b.apply(hub_1.PrivateKey, [void 0, _c.sent()]))();
                         messageList = [];
                         loadMessages = function (pubKey, client, threadId, decryptKey, name, index) { return __awaiter(_this, void 0, void 0, function () {
-                            var collectionName, msgs;
+                            var collectionName, q, msgs;
                             var _this = this;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
                                     case 0:
                                         collectionName = pubKey + "-" + index.toString();
-                                        return [4 /*yield*/, client.find(threadId, collectionName, {})];
+                                        q = new hub_1.Where("owner").eq(pubKey);
+                                        return [4 /*yield*/, client.find(threadId, collectionName, q)];
                                     case 1:
                                         msgs = (_a.sent()).instancesList;
                                         return [4 /*yield*/, Promise.all(msgs.map(function (msg) { return __awaiter(_this, void 0, void 0, function () {

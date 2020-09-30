@@ -1,4 +1,4 @@
-import { Client, Users, PrivateKey, ThreadID } from "@textile/hub";
+import { Client, Users, PrivateKey, ThreadID, Identity } from "@textile/hub";
 import { Signer } from "ethers";
 import { DBInfo } from "@textile/threads-client";
 export interface InviteMessage {
@@ -27,10 +27,10 @@ declare const sendInvite: ({ domain, contactDomain, identity, signer, users, dbI
     dbInfo: DBInfo;
     threadId: ThreadID;
 }) => Promise<void>;
-declare const sendInviteAccepted: ({ domain, contactInviteMessage, identity, users, dbInfo, threadId, }: {
+declare const sendInviteAccepted: ({ domain, contactInviteMessage, privateKey, users, dbInfo, threadId, }: {
     domain: string;
     contactInviteMessage: InviteMessage;
-    identity: PrivateKey;
+    privateKey: PrivateKey;
     signer: Signer;
     users: Users;
     dbInfo: DBInfo;
@@ -42,27 +42,30 @@ declare const configure: ({ identity, threadId, signer, users, client, }: {
     signer: Signer;
     users: Users;
     client: Client;
-}) => Promise<void>;
+}) => Promise<void | unknown[]>;
 declare const getInvites: (users: Users, identity: PrivateKey) => Promise<Array<InviteMessage>>;
-declare const handleAcceptedInvites: ({ identity, threadId, signer, users, client, }: {
-    identity: PrivateKey;
+declare const handleAcceptedInvites: ({ privateKey, identity, threadId, signer, users, client, }: {
+    privateKey: PrivateKey;
+    identity: Identity;
     threadId: ThreadID;
     signer: Signer;
     users: Users;
     client: Client;
 }) => Promise<void>;
-declare const handleAcceptedInvite: ({ signer, contactAcceptedMessage, identity, client, threadId, users, }: {
+declare const handleAcceptedInvite: ({ signer, contactAcceptedMessage, privateKey, client, threadId, users, identity }: {
     threadId: ThreadID;
     client: Client;
     signer: Signer;
-    identity: PrivateKey;
+    privateKey: PrivateKey;
     contactAcceptedMessage: InviteMessage;
     users: Users;
+    identity: Identity;
 }) => Promise<void>;
-declare const contactCreate: (client: Client, threadId: ThreadID, domain: string) => Promise<void | string[]>;
-declare const acceptInvite: ({ domain, identity, threadId, signer, contactInviteMessage, users, client, dbInfo, }: {
+declare const contactCreate: (client: Client, threadId: ThreadID, domain: string, identity: any) => Promise<void | string[]>;
+declare const acceptInvite: ({ domain, identity, privateKey, threadId, signer, contactInviteMessage, users, client, dbInfo, }: {
     domain: string;
-    identity: PrivateKey;
+    identity: Identity;
+    privateKey: PrivateKey;
     threadId: ThreadID;
     signer: Signer;
     contactInviteMessage: InviteMessage;

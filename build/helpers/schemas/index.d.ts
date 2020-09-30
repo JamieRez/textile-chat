@@ -22,6 +22,9 @@ declare const _default: {
                 default: string;
                 examples: string[];
             };
+            owner: {
+                type: string;
+            };
         };
         additionalProperties: boolean;
     };
@@ -37,6 +40,9 @@ declare const _default: {
                 type: string;
             };
             time: {
+                type: string;
+            };
+            owner: {
                 type: string;
             };
         };
@@ -68,6 +74,9 @@ declare const _default: {
                 type: string;
             };
             dbInfo: {
+                type: string;
+            };
+            owner: {
                 type: string;
             };
         };

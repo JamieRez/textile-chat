@@ -26,6 +26,9 @@
     },
     "dbInfo": {
       "type": "string"
+    },
+    "owner": {
+      "type": "string"
     }
   }
 }

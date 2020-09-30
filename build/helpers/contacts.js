@@ -123,7 +123,7 @@ var sendInvite = function (_a) {
 };
 exports.sendInvite = sendInvite;
 var sendInviteAccepted = function (_a) {
-    var domain = _a.domain, contactInviteMessage = _a.contactInviteMessage, identity = _a.identity, users = _a.users, dbInfo = _a.dbInfo, threadId = _a.threadId;
+    var domain = _a.domain, contactInviteMessage = _a.contactInviteMessage, privateKey = _a.privateKey, users = _a.users, dbInfo = _a.dbInfo, threadId = _a.threadId;
     var body = {
         type: "ContactInviteAccepted",
         sig: contactInviteMessage.body.sig,
@@ -132,7 +132,7 @@ var sendInviteAccepted = function (_a) {
         threadId: threadId.toString(),
     };
     var recipient = hub_1.PublicKey.fromString(contactInviteMessage.from);
-    return users.sendMessage(identity, recipient, new TextEncoder().encode(JSON.stringify(body)));
+    return users.sendMessage(privateKey, recipient, new TextEncoder().encode(JSON.stringify(body)));
 };
 exports.sendInviteAccepted = sendInviteAccepted;
 var configure = function (_a) {
@@ -145,24 +145,26 @@ var configure = function (_a) {
                     return client.newCollection(threadId, {
                         name: "contacts",
                         schema: schemas_1.default.contacts,
-                        writeValidator: (function (writer, e, instance) {
-                            console.log(writer);
-                            console.log(identity.toString());
-                            if (writer === identity.toString()) {
-                                return true;
+                        writeValidator: (function (writer, event, instance) {
+                            var patch = event.patch.json_patch;
+                            var type = event.patch.type;
+                            if (type === "create") {
+                                if (writer === patch.owner) {
+                                    return true;
+                                }
+                                else {
+                                    return false;
+                                }
                             }
                             else {
-                                return false;
+                                if (writer === instance.owner) {
+                                    return true;
+                                }
+                                else {
+                                    return false;
+                                }
                             }
                         })
-                    });
-                }).then(function () {
-                    return handleAcceptedInvites({
-                        identity: identity,
-                        threadId: threadId,
-                        signer: signer,
-                        users: users,
-                        client: client,
                     });
                 })];
         });
@@ -201,7 +203,7 @@ var getInvites = function (users, identity) { return __awaiter(void 0, void 0, v
 }); };
 exports.getInvites = getInvites;
 var handleAcceptedInvites = function (_a) {
-    var identity = _a.identity, threadId = _a.threadId, signer = _a.signer, users = _a.users, client = _a.client;
+    var privateKey = _a.privateKey, identity = _a.identity, threadId = _a.threadId, signer = _a.signer, users = _a.users, client = _a.client;
     return __awaiter(void 0, void 0, void 0, function () {
         var messages;
         return __generator(this, function (_b) {
@@ -216,7 +218,7 @@ var handleAcceptedInvites = function (_a) {
                                     case 0:
                                         _b = (_a = JSON).parse;
                                         _d = (_c = new TextDecoder()).decode;
-                                        return [4 /*yield*/, identity.decrypt(message.body)];
+                                        return [4 /*yield*/, privateKey.decrypt(message.body)];
                                     case 1:
                                         body = _b.apply(_a, [_d.apply(_c, [_e.sent()])]);
                                         if (body.type === "ContactInviteAccepted") {
@@ -231,6 +233,7 @@ var handleAcceptedInvites = function (_a) {
                                                     threadId: threadId,
                                                     client: client,
                                                     identity: identity,
+                                                    privateKey: privateKey,
                                                     users: users,
                                                 })];
                                         }
@@ -247,7 +250,7 @@ var handleAcceptedInvites = function (_a) {
 };
 exports.handleAcceptedInvites = handleAcceptedInvites;
 var handleAcceptedInvite = function (_a) {
-    var signer = _a.signer, contactAcceptedMessage = _a.contactAcceptedMessage, identity = _a.identity, client = _a.client, threadId = _a.threadId, users = _a.users;
+    var signer = _a.signer, contactAcceptedMessage = _a.contactAcceptedMessage, privateKey = _a.privateKey, client = _a.client, threadId = _a.threadId, users = _a.users, identity = _a.identity;
     return __awaiter(void 0, void 0, void 0, function () {
         var contactPubKey, sig;
         return __generator(this, function (_b) {
@@ -255,13 +258,13 @@ var handleAcceptedInvite = function (_a) {
                 case 0: return [4 /*yield*/, _1.getAndVerifyDomainPubKey(signer.provider, contactAcceptedMessage.body.domain, contactAcceptedMessage.from)];
                 case 1:
                     contactPubKey = _b.sent();
-                    return [4 /*yield*/, _1.decryptAndDecode(identity, contactAcceptedMessage.body.sig)];
+                    return [4 /*yield*/, _1.decryptAndDecode(privateKey, contactAcceptedMessage.body.sig)];
                 case 2:
                     sig = _b.sent();
                     if (sig !== contactPubKey) {
                         throw new Error("Signature does not match domainPubKey");
                     }
-                    return [4 /*yield*/, contactCreate(client, threadId, contactAcceptedMessage.body.domain)];
+                    return [4 /*yield*/, contactCreate(client, threadId, contactAcceptedMessage.body.domain, identity)];
                 case 3:
                     _b.sent();
                     return [4 /*yield*/, messages.createIndex({
@@ -269,6 +272,7 @@ var handleAcceptedInvite = function (_a) {
                             contactPubKey: contactPubKey,
                             client: client,
                             identity: identity,
+                            privateKey: privateKey,
                             contactDbInfo: contactAcceptedMessage.body.dbInfo,
                             contactThreadId: contactAcceptedMessage.body.threadId,
                         })];
@@ -283,9 +287,9 @@ var handleAcceptedInvite = function (_a) {
     });
 };
 exports.handleAcceptedInvite = handleAcceptedInvite;
-var contactCreate = function (client, threadId, domain) {
+var contactCreate = function (client, threadId, domain, identity) {
     return client
-        .create(threadId, "contacts", [{ domain: domain, _id: domain }])
+        .create(threadId, "contacts", [{ domain: domain, _id: domain, owner: identity.public.toString() }])
         .catch(function (e) {
         if (e.message === "can't create already existing instance") {
             // Contact already created - ignore error
@@ -297,7 +301,7 @@ var contactCreate = function (client, threadId, domain) {
 };
 exports.contactCreate = contactCreate;
 var acceptInvite = function (_a) {
-    var domain = _a.domain, identity = _a.identity, threadId = _a.threadId, signer = _a.signer, contactInviteMessage = _a.contactInviteMessage, users = _a.users, client = _a.client, dbInfo = _a.dbInfo;
+    var domain = _a.domain, identity = _a.identity, privateKey = _a.privateKey, threadId = _a.threadId, signer = _a.signer, contactInviteMessage = _a.contactInviteMessage, users = _a.users, client = _a.client, dbInfo = _a.dbInfo;
     return __awaiter(void 0, void 0, void 0, function () {
         var contactPubKey;
         return __generator(this, function (_b) {
@@ -305,13 +309,13 @@ var acceptInvite = function (_a) {
                 case 0: return [4 /*yield*/, _1.getAndVerifyDomainPubKey(signer.provider, contactInviteMessage.body.domain, contactInviteMessage.from)];
                 case 1:
                     contactPubKey = _b.sent();
-                    return [4 /*yield*/, contactCreate(client, threadId, contactInviteMessage.body.domain)];
+                    return [4 /*yield*/, contactCreate(client, threadId, contactInviteMessage.body.domain, identity)];
                 case 2:
                     _b.sent();
                     return [4 /*yield*/, sendInviteAccepted({
                             threadId: threadId,
                             users: users,
-                            identity: identity,
+                            privateKey: privateKey,
                             dbInfo: dbInfo,
                             signer: signer,
                             contactInviteMessage: contactInviteMessage,
@@ -323,6 +327,7 @@ var acceptInvite = function (_a) {
                             threadId: threadId,
                             contactPubKey: contactPubKey,
                             identity: identity,
+                            privateKey: privateKey,
                             client: client,
                             contactThreadId: contactInviteMessage.body.threadId,
                             contactDbInfo: contactInviteMessage.body.dbInfo,

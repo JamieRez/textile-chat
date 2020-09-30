@@ -11,6 +11,9 @@
         },
         "time": {
             "type": "number"
+        },
+        "owner": {
+            "type": "string"
         }
     }
 }

@@ -33,7 +33,7 @@ export default class TextileChat {
 
   domain: string;
   contactsList: [];
-  contactInvitesList: [];
+  contactInvitesList: any[];
   activeContact: string;
   identity: Identity;
   client: Client;
@@ -86,28 +86,15 @@ export default class TextileChat {
         this.threadId = threadId;
         this.client = client;
         this.users = users;
-        await client.deleteCollection(threadId, 'contacts');
-        client
-          .find(threadId, "contacts", {})
-          .catch(() => {
-            return client.newCollection(threadId, {
-              name: "contacts",
-              schema: schemas.contacts,
-              writeValidator: ((writer, e, instance) => {
-                console.log(writer);
-                console.log(identity.toString());
-                if(writer === identity.toString()){
-                  return true;
-                } else { 
-                  return false;
-                }
-              })
-            })
-          })
         const mailboxId = await users.getMailboxID().catch(() => null);
         if (!mailboxId) {
           await users.setupMailbox();
         }
+        //DELETE THE MESSAGES INDEX
+        // const c: any = await client.find(threadId, "contacts", {});
+        // await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+        // await client.deleteCollection(threadId, 'contacts');
+        await contacts.configure({identity, threadId, signer, users, client});
         resolve();
       } else {
         window.alert(
@@ -131,14 +118,16 @@ export default class TextileChat {
     const emitter = new EventEmitter();
     emitter.on('contacts', cb)
     const contacts: {domain: string, id: string}[] = [];
-    this.client.find(this.threadId, "contacts", {}).then((result) => {
+    const q = new Where("owner").eq(this.identity.toString());
+    this.client.find(this.threadId, "contacts", q).then((result) => {
       result.map((contact: any) => {
         contacts.push({ domain: contact.domain, id: contact._id });
       });
       emitter.emit('contacts', contacts);
+    }).catch(() => {
     });
     this.client.listen(this.threadId, [{collectionName: 'contacts'}], async (contact) => {
-      if(!contact?.instance) return;
+      if(!contact || !contact.instance) return;
       contacts.push({ domain: contact.instance.domain, id: contact.instance._id });
       emitter.emit('contacts', contacts);
     })
@@ -174,7 +163,7 @@ export default class TextileChat {
     emitter.on('invites', cb)
     const messages = await this.users.listInboxMessages();
     const privateKey = PrivateKey.fromString(this.identity.toString())
-    const contactInvites = (
+    this.contactInvitesList = (
       await Promise.all(
         messages.map(async (message) => {
           const body: contacts.InviteMessageBody = JSON.parse(
@@ -187,10 +176,11 @@ export default class TextileChat {
         })
       )
     ).filter((x): x is contacts.InviteMessage => x !== null);
-    emitter.emit('invites', contactInvites);
+    emitter.emit('invites', this.contactInvitesList);
     
     contacts.handleAcceptedInvites({
-      identity: privateKey,
+      privateKey: privateKey,
+      identity: this.identity,
       threadId: this.threadId,
       signer: this.signer,
       users: this.users,
@@ -211,8 +201,8 @@ export default class TextileChat {
             from: message.from,
             id: message.id,
           };
-          contactInvites.push(contactInviteMessage);
-          emitter.emit('invites', contactInviteMessage);
+          this.contactInvitesList.push(contactInviteMessage);
+          emitter.emit('invites', this.contactInvitesList);
         }
         if (body.type === "ContactInviteAccepted") {
           const contactAcceptedMessage: contacts.InviteMessage = {
@@ -223,7 +213,8 @@ export default class TextileChat {
           contacts.handleAcceptedInvite({
             signer: this.signer,
             contactAcceptedMessage,
-            identity: privateKey,
+            identity: this.identity,
+            privateKey,
             client: this.client,
             threadId: this.threadId,
             users: this.users,
@@ -242,11 +233,11 @@ export default class TextileChat {
     );
     const dbInfo = await this.client.getDBInfo(this.threadId);
     const privateKey = PrivateKey.fromString(this.identity.toString())
-    await contacts.contactCreate(this.client, this.threadId, contactInviteMessage.body.domain);
+    await contacts.contactCreate(this.client, this.threadId, contactInviteMessage.body.domain, this.identity);
     await contacts.sendInviteAccepted({
       threadId: this.threadId,
       users: this.users,
-      identity: privateKey,
+      privateKey: privateKey,
       dbInfo,
       signer: this.signer,
       contactInviteMessage,
@@ -255,10 +246,11 @@ export default class TextileChat {
     await messages.createIndex({
       threadId: this.threadId,
       contactPubKey,
-      identity: privateKey,
+      privateKey: privateKey,
       client: this.client,
       contactThreadId: contactInviteMessage.body.threadId,
       contactDbInfo: contactInviteMessage.body.dbInfo,
+      identity: this.identity
     });
     await this.users.deleteInboxMessage(contactInviteMessage.id);
   };
@@ -266,6 +258,7 @@ export default class TextileChat {
   async declineInvite (contactInviteMessage) {
     if(!this.users) return;
     await this.users.deleteInboxMessage(contactInviteMessage.id);
+    this.contactInvitesList.splice(this.contactInvitesList.indexOf(contactInviteMessage), 1);
   };
 
   async sendMessage (contactDomain, msg, index) {
@@ -283,7 +276,7 @@ export default class TextileChat {
     const message: messages.Message = {
       time: Date.now(),
       body: await encrypt(pubKey, msg),
-      owner: "",
+      owner: this.identity.public.toString(),
       id: "",
     };
     return this.client.create(this.threadId, contactPubKey + "-" + index.toString(), [
@@ -342,7 +335,8 @@ export default class TextileChat {
       index
     ) => {
       const collectionName = pubKey + "-" + index.toString();
-      const msgs = (await client.find(threadId, collectionName, {})).instancesList;
+      const q = new Where("owner").eq(pubKey);
+      const msgs = (await client.find(threadId, collectionName, q)).instancesList;
       await Promise.all(
         msgs.map(async (msg) => {
           const decryptedBody = await decryptAndDecode(decryptKey, msg.body);

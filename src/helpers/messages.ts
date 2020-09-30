@@ -25,6 +25,7 @@ export interface MessagesIndex {
   dbInfo: string;
   encryptKey: string;
   _id: "index";
+  owner: string;
 }
 
 export interface Message {
@@ -38,23 +39,49 @@ const createIndex = async ({
   threadId,
   contactPubKey,
   client,
-  identity,
+  privateKey,
   contactThreadId,
   contactDbInfo,
+  identity
 }: {
   threadId: ThreadID;
   contactPubKey: string;
   client: Client;
-  identity: PrivateKey;
+  privateKey: PrivateKey;
   contactThreadId: string;
   contactDbInfo: string;
+  identity: Identity;
 }): Promise<MessagesIndex> => {
   const messagesIndexCollectionName = contactPubKey + "-index";
+  
+  // try{
+  //   await client.deleteCollection(threadId, messagesIndexCollectionName);
+  // } catch {
+    
+  // }
+  //DELETE THE MESSAGES INDEX
   await findOrCreateCollection({
     client,
     threadId,
     collectionName: messagesIndexCollectionName,
     schema: schemas.messagesIndex,
+    writeValidator: ((writer, event, instance) => {
+      var patch = event.patch.json_patch;
+      var type = event.patch.type;
+      if(type === "create"){
+        if (writer === patch.owner) {
+          return true
+        } else { 
+          return false
+        }
+      } else {
+        if (writer === instance.owner){
+          return true;
+        } else {
+          return false;
+        }
+      }
+    })
   });
   const contact = PublicKey.fromString(contactPubKey);
   const encryptionWallet = PrivateKey.fromRandom();
@@ -62,7 +89,7 @@ const createIndex = async ({
     await contact.encrypt(encryptionWallet.seed)
   ).toString();
   const ownerDecryptKey = (
-    await identity.public.encrypt(encryptionWallet.seed)
+    await privateKey.public.encrypt(encryptionWallet.seed)
   ).toString();
   const messagesIndex: MessagesIndex = {
     currentLength: 0,
@@ -73,6 +100,7 @@ const createIndex = async ({
     threadId: contactThreadId,
     dbInfo: contactDbInfo,
     _id: "index",
+    owner: identity.public.toString()
   };
   try {
     await client.delete(threadId, messagesIndexCollectionName, [
@@ -90,11 +118,36 @@ const createIndex = async ({
         throw Error(e.message);
       }
     });
+
+  // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
+  // await client.delete(threadId, messagesIndexCollectionName, m2.map((msg: any) => msg._id));
+  // try{
+  //   await client.deleteCollection(threadId, contactPubKey + "-0");
+  // } catch {
+
+  // }
   await findOrCreateCollection({
     client,
     threadId,
     collectionName: contactPubKey + "-0",
     schema: schemas.messages,
+    writeValidator: ((writer, event, instance) => {
+      var patch = event.patch.json_patch;
+      var type = event.patch.type;
+      if(type === "create"){
+        if (writer === patch.owner) {
+          return true
+        } else { 
+          return false
+        }
+      } else {
+        if (writer === instance.owner){
+          return true;
+        } else {
+          return false;
+        }
+      }
+    })
   });
   return messagesIndex;
 };
@@ -130,6 +183,23 @@ const collectionCreate = async ({
     threadId,
     collectionName,
     schema: schemas.messages,
+    writeValidator: ((writer, event, instance) => {
+      var patch = event.patch.json_patch;
+      var type = event.patch.type;
+      if(type === "create"){
+        if (writer === patch.owner) {
+          return true
+        } else { 
+          return false
+        }
+      } else {
+        if (writer === instance.owner){
+          return true;
+        } else {
+          return false;
+        }
+      }
+    })
   });
 };
 
