@@ -8,29 +8,32 @@ import {
   PublicKey,
   Identity,
   DBInfo,
-  Where
-} from "@textile/hub";
-import ethers, { Signer } from "ethers";
+  Where,
+} from '@textile/hub';
+import ethers, { Signer } from 'ethers';
 import { EventEmitter } from 'events';
-import RegistryContract from "./contracts/Registry.json";
-import DefaultResolverContract from "./contracts/DefaultResolver.json";
-import schemas from "./helpers/schemas";
+import schemas from './helpers/schemas';
 import {
   getIdentity,
   auth,
-  getRecord,
-  configureDomain,
   getDomainPubKey,
   getAndVerifyDomainPubKey,
   encrypt,
   decrypt,
-  decryptAndDecode
-} from "./helpers/index";
-import * as contacts from "./helpers/contacts";
-import * as messages from "./helpers/messages";
+  decryptAndDecode,
+  getChatThreadId,
+} from './helpers';
+import * as contacts from './helpers/contacts';
+import * as messages from './helpers/messages';
+import ChatError, { ChatErrorCode } from './errors';
 
+export type Events = 'contacts' | 'invites' | 'messages';
+export type EventCallbackParams = {
+  invites: contacts.InviteMessage[];
+  contacts: { domain: string; id: string }[];
+  messages: messages.Message[];
+};
 export default class TextileChat {
-
   domain: string;
   contactsList: [];
   contactInvitesList: [];
@@ -41,147 +44,146 @@ export default class TextileChat {
   signer: Signer;
   threadId: ThreadID;
   users: Users;
+  provider: ethers.providers.Web3Provider;
+  emitter: EventEmitter;
 
-  constructor() {
-    this.domain = '';
+  constructor(domain: string, web3Provider: ethers.providers.Web3Provider) {
+    this.domain = domain;
     this.contactsList = [];
     this.contactInvitesList = [];
+    this.provider = web3Provider;
+    this.signer = this.provider.getSigner();
+    this.emitter = new EventEmitter();
   }
 
-  async join(domain: string) {
-    return new Promise(async (resolve) => {
-      this.domain = domain;
-      if (!(window as any).ethereum) {
-        return window.alert(
-          "Unable to detect a web3 wallet. Visit https://metamask.io/ to download a web3 compatible wallet."
-        );
-      }
-      const provider = new ethers.providers.Web3Provider(
-        (window as any).ethereum
+  async init() {
+    const identity = await getIdentity(this.signer);
+    const domainPubKey = await getDomainPubKey(this.provider, this.domain);
+    if (!domainPubKey) {
+      throw new ChatError(ChatErrorCode.UnconfiguredDomain, {
+        domain: this.domain,
+      });
+    }
+    if (identity.public.toString() !== domainPubKey) {
+      throw new ChatError(ChatErrorCode.InvalidPubKey, {
+        domain: this.domain,
+        pubKey: domainPubKey,
+        expected: identity.public.toString(),
+      });
+    }
+    const userAuth = await auth(identity, this.domain, this.signer);
+    this.identity = identity;
+    this.userAuth = userAuth;
+    this.client = Client.withUserAuth(userAuth);
+    this.users = Users.withUserAuth(userAuth);
+    await this.users.getToken(identity);
+    await this.client.getToken(identity);
+    this.threadId = await getChatThreadId(this.client);
+    this.client.find(this.threadId, 'contacts', {}).catch(() => {
+      return this.client.newCollection(
+        this.threadId,
+        'contacts',
+        schemas.contacts,
       );
-      await (window as any).ethereum.enable();
-      const signer = provider.getSigner();
-      const identity = await getIdentity(signer);
-      const domainPubKey = await getDomainPubKey(signer.provider, this.domain);
-      if (!domainPubKey) {
-        await configureDomain(identity, this.domain, signer);
-      } else if (identity.public.toString() === domainPubKey) {
-        const userAuth = await auth(identity, this.domain, signer);
-        const client = Client.withUserAuth(userAuth);
-        const users = Users.withUserAuth(userAuth);
-        await users.getToken(identity);
-        await client.getToken(identity);
-        let threadId: ThreadID = ThreadID.fromRandom();
-        try {
-          const thread = await client.getThread("unstoppable-chat");
-          if (thread) {
-            threadId = ThreadID.fromString(thread.id);
-          }
-        } catch {
-          threadId = await client.newDB(threadId, "unstoppable-chat");
-        }
-        this.identity = identity;
-        this.userAuth = userAuth;
-        this.signer = signer;
-        this.threadId = threadId;
-        this.client = client;
-        this.users = users;
-        client
-          .find(threadId, "contacts", {})
-          .catch(() => {
-            return client.newCollection(threadId, "contacts", schemas.contacts);
-          })
-        const mailboxId = await users.getMailboxID().catch(() => null);
-        if (!mailboxId) {
-          await users.setupMailbox();
-        }
-        resolve();
-      } else {
-        window.alert(
-          "Domain record does not match id. Would you like to reconfigure your domain?"
-        );
-      }
-    })
-  }
-
-  async deleteContact(contactDomain: string){
-    if(!this.client || !this.threadId) return;
-    const q = new Where("domain").eq(contactDomain);
-    const contact = (await this.client.find(this.threadId, 'contacts', q)).instancesList[0];
-    if(contact) {
-      await this.client.delete(this.threadId, "contacts", [contact._id]);
+    });
+    const mailboxId = await this.users.getMailboxID().catch(() => null);
+    if (!mailboxId) {
+      await this.users.setupMailbox();
     }
   }
-  
-  async getContacts (cb) {
-    if(!this.client || !this.threadId) return;
-    const emitter = new EventEmitter();
-    emitter.on('contacts', cb)
-    const contacts: {domain: string, id: string}[] = [];
-    this.client.find(this.threadId, "contacts", {}).then((result) => {
+
+  on<Event extends Events>(
+    event: Event,
+    cb: (params: EventCallbackParams[Event]) => void,
+  ) {
+    this.emitter.on(event, cb);
+  }
+
+  async deleteContact(contactDomain: string) {
+    const q = new Where('domain').eq(contactDomain);
+    const contact = (await this.client.find(this.threadId, 'contacts', q))
+      .instancesList[0];
+    if (contact) {
+      return this.client.delete(this.threadId, 'contacts', [contact._id]);
+    }
+  }
+
+  async getContacts(
+    cb: (contacts: Array<{ domain: string; id: string }>) => void,
+  ) {
+    const contacts: { domain: string; id: string }[] = [];
+    this.client.find(this.threadId, 'contacts', {}).then((result) => {
       result.instancesList.map((contact) => {
         contacts.push({ domain: contact.domain, id: contact._id });
       });
-      emitter.emit('contacts', contacts);
+      this.emitter.emit('contacts', contacts);
     });
-    this.client.listen(this.threadId, [{collectionName: 'contacts'}], async (contact) => {
-      if(!contact?.instance) return;
-      contacts.push({ domain: contact.instance.domain, id: contact.instance._id });
-      emitter.emit('contacts', contacts);
-    })
+    this.client.listen(
+      this.threadId,
+      [{ collectionName: 'contacts' }],
+      async (contact) => {
+        if (!contact?.instance) {
+          return;
+        }
+        contacts.push({
+          domain: contact.instance.domain,
+          id: contact.instance._id,
+        });
+        this.emitter.emit('contacts', contacts);
+      },
+    );
+  }
 
-  };
-  
-  async sendContactInvite (contactDomain: string) {
-    if(!this.signer || !this.identity || !this.client || !this.domain || !this.threadId || !this.users) return;
-    const domainPubKey = await getDomainPubKey(this.signer.provider!, contactDomain);
+  async sendContactInvite(contactDomain: string) {
+    const domainPubKey = await getDomainPubKey(
+      this.signer.provider!,
+      contactDomain,
+    );
     if (!domainPubKey) {
-      throw new Error("Domain does not have pubkey set");
+      throw new ChatError(ChatErrorCode.UnconfiguredDomain, {
+        domain: contactDomain,
+      });
     }
     const recipient = PublicKey.fromString(domainPubKey);
-    const sig = await encrypt(PublicKey.fromString(this.identity.public.toString()), domainPubKey);
+    const sig = await encrypt(
+      PublicKey.fromString(this.identity.public.toString()),
+      domainPubKey,
+    );
     const dbInfo = await this.client.getDBInfo(this.threadId);
     const contactInviteMessage: contacts.InviteMessageBody = {
-      type: "ContactInvite",
+      type: 'ContactInvite',
       sig,
       domain: this.domain,
       dbInfo: JSON.stringify(dbInfo),
       threadId: this.threadId.toString(),
     };
-    await this.users.sendMessage(
+    return this.users.sendMessage(
       this.identity,
       recipient,
-      new TextEncoder().encode(JSON.stringify(contactInviteMessage))
+      new TextEncoder().encode(JSON.stringify(contactInviteMessage)),
     );
-  };
-  
-  async getInvites (cb) {
-    if(!this.users || !this.identity) return;
-    const emitter = new EventEmitter();
-    emitter.on('invites', cb)
+  }
+
+  async getInvites(cb: (contactInvites: contacts.InviteMessage[]) => void) {
     const messages = await this.users.listInboxMessages();
-    const privateKey = PrivateKey.fromString(this.identity.toString())
-    const contactInvites = (
-      await Promise.all(
-        messages.map(async (message) => {
-          const body: contacts.InviteMessageBody = JSON.parse(
-            new TextDecoder().decode(await privateKey.decrypt(message.body))
-          );
-          if (body.type === "ContactInvite") {
-            return { body, from: message.from, id: message.id };
-          }
-          return null;
-        })
-      )
-    ).filter((x): x is contacts.InviteMessage => x !== null);
-    emitter.emit('invites', contactInvites);
-    
+    const privateKey = PrivateKey.fromString(this.identity.toString());
+    const contactInvites: contacts.InviteMessage[] = [];
+    for (const message of messages) {
+      const body: contacts.InviteMessageBody = JSON.parse(
+        new TextDecoder().decode(await privateKey.decrypt(message.body)),
+      );
+      if (body.type === 'ContactInvite') {
+        contactInvites.push({ body, from: message.from, id: message.id });
+      }
+    }
+    this.emitter.emit('invites', contactInvites);
+
     contacts.handleAcceptedInvites({
       identity: privateKey,
       threadId: this.threadId,
       signer: this.signer,
       users: this.users,
-      client: this.client
+      client: this.client,
     });
 
     //LISTEN FOR NEW INVITES
@@ -190,18 +192,18 @@ export default class TextileChat {
       if (reply && reply.message) {
         const message = reply.message;
         const body: contacts.InviteMessageBody = JSON.parse(
-          new TextDecoder().decode(await privateKey.decrypt(message.body))
+          new TextDecoder().decode(await privateKey.decrypt(message.body)),
         );
-        if (body.type === "ContactInvite") {
+        if (body.type === 'ContactInvite') {
           const contactInviteMessage: contacts.InviteMessage = {
             body,
             from: message.from,
             id: message.id,
           };
           contactInvites.push(contactInviteMessage);
-          emitter.emit('invites', contactInviteMessage);
+          this.emitter.emit('invites', contactInviteMessage);
         }
-        if (body.type === "ContactInviteAccepted") {
+        if (body.type === 'ContactInviteAccepted') {
           const contactAcceptedMessage: contacts.InviteMessage = {
             body,
             from: message.from,
@@ -214,22 +216,25 @@ export default class TextileChat {
             client: this.client,
             threadId: this.threadId,
             users: this.users,
-          })
+          });
         }
       }
     });
-  };
-  
-  async acceptContactInvite (contactInviteMessage) {
-    if(!this.signer || !this.client || !this.threadId || !this.users || !this.identity || !this.domain) return;
+  }
+
+  async acceptContactInvite(contactInviteMessage: contacts.InviteMessage) {
     const contactPubKey: string = await getAndVerifyDomainPubKey(
       this.signer.provider!,
       contactInviteMessage.body.domain,
-      contactInviteMessage.from
+      contactInviteMessage.from,
     );
     const dbInfo = await this.client.getDBInfo(this.threadId);
-    const privateKey = PrivateKey.fromString(this.identity.toString())
-    await contacts.contactCreate(this.client, this.threadId, contactInviteMessage.body.domain);
+    const privateKey = PrivateKey.fromString(this.identity.toString());
+    await contacts.contactCreate(
+      this.client,
+      this.threadId,
+      contactInviteMessage.body.domain,
+    );
     await contacts.sendInviteAccepted({
       threadId: this.threadId,
       users: this.users,
@@ -248,18 +253,16 @@ export default class TextileChat {
       contactDbInfo: contactInviteMessage.body.dbInfo,
     });
     await this.users.deleteInboxMessage(contactInviteMessage.id);
-  };
-  
-  async declineInvite (contactInviteMessage) {
-    if(!this.users) return;
-    await this.users.deleteInboxMessage(contactInviteMessage.id);
-  };
+  }
 
-  async sendMessage (contactDomain, msg, index) {
-    if(!this.client || !this.threadId) return;
+  async declineInvite(contactInviteMessage: contacts.InviteMessage) {
+    return this.users.deleteInboxMessage(contactInviteMessage.id);
+  }
+
+  async sendMessage(contactDomain: string, msg: string, index: number) {
     const contactPubKey = await getDomainPubKey(
       this.signer.provider!,
-      contactDomain
+      contactDomain,
     );
     const msgIndex = await messages.getIndex({
       client: this.client,
@@ -270,21 +273,70 @@ export default class TextileChat {
     const message: messages.Message = {
       time: Date.now(),
       body: await encrypt(pubKey, msg),
-      owner: "",
-      id: "",
+      owner: '',
+      id: '',
     };
-    return this.client.create(this.threadId, contactPubKey + "-" + index.toString(), [
-      message,
-    ]);
-  };
-  
-  async loadContactMessages (contactDomain, index, cb){
-    if(!this.client || !this.threadId || !this.userAuth || !this.identity || !this.signer) return;
-    const emitter = new EventEmitter();
-    emitter.on("newMessage", cb);
+    return this.client.create(
+      this.threadId,
+      contactPubKey + '-' + index.toString(),
+      [message],
+    );
+  }
+
+  async loadMessages(
+    pubKey: string,
+    client: Client,
+    threadId: ThreadID,
+    decryptKey: PrivateKey,
+    name: string,
+    index: number,
+  ) {
+    const messageList: messages.Message[] = [];
+    const collectionName = pubKey + '-' + index.toString();
+    const msgs = (await client.find(threadId, collectionName, {}))
+      .instancesList;
+    for (const msg of msgs) {
+      const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
+      messageList.push({
+        body: decryptedBody,
+        time: msg.time,
+        owner: name,
+        id: msg._id,
+      });
+    }
+    messageList.sort((a, b) => a.time - b.time);
+    this.emitter.emit('messages', messageList);
+    client.listen(threadId, [{ collectionName }], async (msg: any) => {
+      if (!msg.instance) {
+        return;
+      }
+      const decryptedBody = await decryptAndDecode(
+        decryptKey,
+        msg.instance.body,
+      );
+      messageList.push({
+        body: decryptedBody,
+        time: msg.instance.time,
+        owner: name,
+        id: msg._id,
+      });
+      messageList.sort((a, b) => a.time - b.time);
+      this.emitter.emit('messages', messageList);
+    });
+  }
+
+  async loadContactMessages(
+    contactDomain: string,
+    index: number,
+    cb: () => void,
+  ) {
+    if (this.activeContact) {
+
+    }
+    this.activeContact = contactDomain;
     const _contactPubKey = await getDomainPubKey(
       this.signer.provider!,
-      contactDomain
+      contactDomain,
     );
     const _messagesIndex = await messages.getIndex({
       client: this.client,
@@ -293,13 +345,14 @@ export default class TextileChat {
     });
     const _contactClient = await Client.withUserAuth(this.userAuth);
     try {
-      // TODO: Ask textile about dbInfo
       await _contactClient.joinFromInfo(JSON.parse(_messagesIndex.dbInfo));
     } catch (e) {
-      if (e.message === "db already exists") {
+      if (e.message === 'db already exists') {
         // ignore, probably using same textile id
       } else {
-        throw new Error(e.message);
+        throw new ChatError(ChatErrorCode.UnknownError, {
+          errorMessage: e.message,
+        });
       }
     }
     const contactThreadId = ThreadID.fromString(_messagesIndex.threadId);
@@ -308,57 +361,17 @@ export default class TextileChat {
         client: _contactClient,
         threadId: contactThreadId,
         pubKey: this.identity.public.toString(),
-      }
+      },
     );
-    const privateKey = PrivateKey.fromString(this.identity.toString())
+    const privateKey = PrivateKey.fromString(this.identity.toString());
     const ownerDecryptKey = new PrivateKey(
-      await decrypt(privateKey, _messagesIndex.ownerDecryptKey)
+      await decrypt(privateKey, _messagesIndex.ownerDecryptKey),
     );
     const readerDecryptKey = new PrivateKey(
-      await decrypt(privateKey, contactMessageIndex.readerDecryptKey)
+      await decrypt(privateKey, contactMessageIndex.readerDecryptKey),
     );
 
-    const messageList: messages.Message[] = [];
-
-    const loadMessages = async (
-      pubKey,
-      client,
-      threadId,
-      decryptKey,
-      name,
-      index
-    ) => {
-      const collectionName = pubKey + "-" + index.toString();
-      const msgs = (await client.find(threadId, collectionName, {})).instancesList;
-      await Promise.all(
-        msgs.map(async (msg) => {
-          const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
-          messageList.push({
-            body: decryptedBody,
-            time: msg.time,
-            owner: name,
-            id: msg._id,
-          });
-        })
-      );
-      messageList.sort((a, b) => a.time - b.time);
-      emitter.emit('newMessage', messageList);
-      client.listen(threadId, [{ collectionName }], async (msg: any) => {
-        if (!msg.instance) {
-          return;
-        }
-        const decryptedBody = await decryptAndDecode(decryptKey, msg.instance.body);
-        messageList.push({
-          body: decryptedBody,
-          time: msg.instance.time,
-          owner: name,
-          id: msg._id,
-        })
-        messageList.sort((a, b) => a.time - b.time);
-        emitter.emit('newMessage', messageList);
-      });
-    }
-    loadMessages(
+    this.loadMessages(
       _contactPubKey,
       this.client,
       this.threadId,
@@ -366,15 +379,13 @@ export default class TextileChat {
       this.domain,
       index,
     );
-    loadMessages(
+    this.loadMessages(
       this.identity.public.toString(),
       _contactClient,
       contactThreadId,
       readerDecryptKey,
       contactDomain,
-      index
+      index,
     );
-
-  };
-
+  }
 }
