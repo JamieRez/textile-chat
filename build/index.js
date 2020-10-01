@@ -14,7 +14,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -54,112 +54,89 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __spreadArrays = (this && this.__spreadArrays) || function () {
+    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
+    for (var r = Array(s), k = 0, i = 0; i < il; i++)
+        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
+            r[k] = a[j];
+    return r;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var hub_1 = require("@textile/hub");
-var ethers_1 = __importDefault(require("ethers"));
 var events_1 = require("events");
 var schemas_1 = __importDefault(require("./helpers/schemas"));
-var index_1 = require("./helpers/index");
+var helpers_1 = require("./helpers");
 var contacts = __importStar(require("./helpers/contacts"));
 var messages = __importStar(require("./helpers/messages"));
+var errors_1 = __importStar(require("./errors"));
 var TextileChat = /** @class */ (function () {
-    function TextileChat() {
-        this.domain = '';
+    function TextileChat(domain, textileSocketUrl, web3Provider) {
+        this.activeContactListeners = [];
+        this.textileSocketUrl = textileSocketUrl;
+        this.domain = domain;
         this.contactsList = [];
         this.contactInvitesList = [];
+        this.provider = web3Provider;
+        this.signer = this.provider.getSigner();
+        this.emitter = new events_1.EventEmitter();
     }
-    TextileChat.prototype.join = function (domain) {
+    TextileChat.prototype.init = function () {
         return __awaiter(this, void 0, void 0, function () {
+            var identity, domainPubKey, userAuth, _a, mailboxId;
             var _this = this;
-            return __generator(this, function (_a) {
-                return [2 /*return*/, new Promise(function (resolve) { return __awaiter(_this, void 0, void 0, function () {
-                        var provider, signer, identity, domainPubKey, userAuth, client_1, users, threadId_1, thread, _a, mailboxId;
-                        return __generator(this, function (_b) {
-                            switch (_b.label) {
-                                case 0:
-                                    this.domain = domain;
-                                    if (!window.ethereum) {
-                                        return [2 /*return*/, window.alert("Unable to detect a web3 wallet. Visit https://metamask.io/ to download a web3 compatible wallet.")];
-                                    }
-                                    provider = new ethers_1.default.providers.Web3Provider(window.ethereum);
-                                    return [4 /*yield*/, window.ethereum.enable()];
-                                case 1:
-                                    _b.sent();
-                                    signer = provider.getSigner();
-                                    return [4 /*yield*/, index_1.getIdentity(signer)];
-                                case 2:
-                                    identity = _b.sent();
-                                    return [4 /*yield*/, index_1.getDomainPubKey(signer.provider, this.domain)];
-                                case 3:
-                                    domainPubKey = _b.sent();
-                                    if (!!domainPubKey) return [3 /*break*/, 5];
-                                    return [4 /*yield*/, index_1.configureDomain(identity, this.domain, signer)];
-                                case 4:
-                                    _b.sent();
-                                    return [3 /*break*/, 18];
-                                case 5:
-                                    if (!(identity.public.toString() === domainPubKey)) return [3 /*break*/, 17];
-                                    return [4 /*yield*/, index_1.auth(identity, this.domain, signer)];
-                                case 6:
-                                    userAuth = _b.sent();
-                                    client_1 = hub_1.Client.withUserAuth(userAuth);
-                                    users = hub_1.Users.withUserAuth(userAuth);
-                                    return [4 /*yield*/, users.getToken(identity)];
-                                case 7:
-                                    _b.sent();
-                                    return [4 /*yield*/, client_1.getToken(identity)];
-                                case 8:
-                                    _b.sent();
-                                    threadId_1 = hub_1.ThreadID.fromRandom();
-                                    _b.label = 9;
-                                case 9:
-                                    _b.trys.push([9, 11, , 13]);
-                                    return [4 /*yield*/, client_1.getThread("unstoppable-chat")];
-                                case 10:
-                                    thread = _b.sent();
-                                    if (thread) {
-                                        threadId_1 = hub_1.ThreadID.fromString(thread.id);
-                                    }
-                                    return [3 /*break*/, 13];
-                                case 11:
-                                    _a = _b.sent();
-                                    return [4 /*yield*/, client_1.newDB(threadId_1, "unstoppable-chat")];
-                                case 12:
-                                    threadId_1 = _b.sent();
-                                    return [3 /*break*/, 13];
-                                case 13:
-                                    this.identity = identity;
-                                    this.userAuth = userAuth;
-                                    this.signer = signer;
-                                    this.threadId = threadId_1;
-                                    this.client = client_1;
-                                    this.users = users;
-                                    client_1
-                                        .find(threadId_1, "contacts", {})
-                                        .catch(function () {
-                                        return client_1.newCollection(threadId_1, "contacts", schemas_1.default.contacts);
-                                    });
-                                    return [4 /*yield*/, users.getMailboxID().catch(function () { return null; })];
-                                case 14:
-                                    mailboxId = _b.sent();
-                                    if (!!mailboxId) return [3 /*break*/, 16];
-                                    return [4 /*yield*/, users.setupMailbox()];
-                                case 15:
-                                    _b.sent();
-                                    _b.label = 16;
-                                case 16:
-                                    resolve();
-                                    return [3 /*break*/, 18];
-                                case 17:
-                                    window.alert("Domain record does not match id. Would you like to reconfigure your domain?");
-                                    _b.label = 18;
-                                case 18: return [2 /*return*/];
-                            }
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0: return [4 /*yield*/, helpers_1.getIdentity(this.signer)];
+                    case 1:
+                        identity = _b.sent();
+                        return [4 /*yield*/, helpers_1.getDomainPubKey(this.provider, this.domain)];
+                    case 2:
+                        domainPubKey = _b.sent();
+                        if (!domainPubKey) {
+                            throw new errors_1.default(errors_1.ChatErrorCode.UnconfiguredDomain, {
+                                domain: this.domain,
+                            });
+                        }
+                        if (identity.public.toString() !== domainPubKey) {
+                            throw new errors_1.default(errors_1.ChatErrorCode.InvalidPubKey, {
+                                domain: this.domain,
+                                pubKey: domainPubKey,
+                                expected: identity.public.toString(),
+                            });
+                        }
+                        return [4 /*yield*/, helpers_1.auth(this.textileSocketUrl, identity, this.domain, this.signer)];
+                    case 3:
+                        userAuth = _b.sent();
+                        this.identity = identity;
+                        this.userAuth = userAuth;
+                        this.client = hub_1.Client.withUserAuth(userAuth);
+                        this.users = hub_1.Users.withUserAuth(userAuth);
+                        return [4 /*yield*/, this.users.getToken(identity)];
+                    case 4:
+                        _b.sent();
+                        return [4 /*yield*/, this.client.getToken(identity)];
+                    case 5:
+                        _b.sent();
+                        _a = this;
+                        return [4 /*yield*/, helpers_1.getChatThreadId(this.users, this.client)];
+                    case 6:
+                        _a.threadId = _b.sent();
+                        this.client.find(this.threadId, 'contacts', {}).catch(function () {
+                            return _this.client.newCollection(_this.threadId, 'contacts', schemas_1.default.contacts);
                         });
-                    }); })];
+                        return [4 /*yield*/, this.users.getMailboxID().catch(function () { return null; })];
+                    case 7:
+                        mailboxId = _b.sent();
+                        if (!!mailboxId) return [3 /*break*/, 9];
+                        return [4 /*yield*/, this.users.setupMailbox()];
+                    case 8:
+                        _b.sent();
+                        _b.label = 9;
+                    case 9: return [2 /*return*/];
+                }
             });
         });
     };
@@ -169,134 +146,119 @@ var TextileChat = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!this.client || !this.threadId)
-                            return [2 /*return*/];
-                        q = new hub_1.Where("domain").eq(contactDomain);
+                        q = new hub_1.Where('domain').eq(contactDomain);
                         return [4 /*yield*/, this.client.find(this.threadId, 'contacts', q)];
                     case 1:
-                        contact = (_a.sent()).instancesList[0];
-                        if (!contact) return [3 /*break*/, 3];
-                        return [4 /*yield*/, this.client.delete(this.threadId, "contacts", [contact._id])];
-                    case 2:
-                        _a.sent();
-                        _a.label = 3;
-                    case 3: return [2 /*return*/];
+                        contact = (_a.sent())
+                            .instancesList[0];
+                        if (contact) {
+                            return [2 /*return*/, this.client.delete(this.threadId, 'contacts', [contact._id])];
+                        }
+                        return [2 /*return*/];
                 }
             });
         });
     };
     TextileChat.prototype.getContacts = function (cb) {
         return __awaiter(this, void 0, void 0, function () {
-            var emitter, contacts;
+            var contacts;
             var _this = this;
             return __generator(this, function (_a) {
-                if (!this.client || !this.threadId)
-                    return [2 /*return*/];
-                emitter = new events_1.EventEmitter();
-                emitter.on('contacts', cb);
+                this.emitter.on('contact', cb);
                 contacts = [];
-                this.client.find(this.threadId, "contacts", {}).then(function (result) {
+                this.client.find(this.threadId, 'contacts', {}).then(function (result) {
                     result.instancesList.map(function (contact) {
                         contacts.push({ domain: contact.domain, id: contact._id });
                     });
-                    emitter.emit('contacts', contacts);
                 });
                 this.client.listen(this.threadId, [{ collectionName: 'contacts' }], function (contact) { return __awaiter(_this, void 0, void 0, function () {
                     return __generator(this, function (_a) {
-                        if (!(contact === null || contact === void 0 ? void 0 : contact.instance))
+                        if (!(contact === null || contact === void 0 ? void 0 : contact.instance)) {
                             return [2 /*return*/];
-                        contacts.push({ domain: contact.instance.domain, id: contact.instance._id });
-                        emitter.emit('contacts', contacts);
+                        }
+                        this.emitter.emit('contact', {
+                            domain: contact.instance.domain,
+                            id: contact.instance._id,
+                        });
                         return [2 /*return*/];
                     });
                 }); });
-                return [2 /*return*/];
+                return [2 /*return*/, contacts];
             });
         });
     };
-    ;
     TextileChat.prototype.sendContactInvite = function (contactDomain) {
         return __awaiter(this, void 0, void 0, function () {
             var domainPubKey, recipient, sig, dbInfo, contactInviteMessage;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0:
-                        if (!this.signer || !this.identity || !this.client || !this.domain || !this.threadId || !this.users)
-                            return [2 /*return*/];
-                        return [4 /*yield*/, index_1.getDomainPubKey(this.signer.provider, contactDomain)];
+                    case 0: return [4 /*yield*/, helpers_1.getDomainPubKey(this.signer.provider, contactDomain)];
                     case 1:
                         domainPubKey = _a.sent();
                         if (!domainPubKey) {
-                            throw new Error("Domain does not have pubkey set");
+                            throw new errors_1.default(errors_1.ChatErrorCode.UnconfiguredDomain, {
+                                domain: contactDomain,
+                            });
                         }
                         recipient = hub_1.PublicKey.fromString(domainPubKey);
-                        return [4 /*yield*/, index_1.encrypt(hub_1.PublicKey.fromString(this.identity.public.toString()), domainPubKey)];
+                        return [4 /*yield*/, helpers_1.encrypt(hub_1.PublicKey.fromString(this.identity.public.toString()), domainPubKey)];
                     case 2:
                         sig = _a.sent();
                         return [4 /*yield*/, this.client.getDBInfo(this.threadId)];
                     case 3:
                         dbInfo = _a.sent();
                         contactInviteMessage = {
-                            type: "ContactInvite",
+                            type: 'ContactInvite',
                             sig: sig,
                             domain: this.domain,
                             dbInfo: JSON.stringify(dbInfo),
                             threadId: this.threadId.toString(),
                         };
-                        return [4 /*yield*/, this.users.sendMessage(this.identity, recipient, new TextEncoder().encode(JSON.stringify(contactInviteMessage)))];
-                    case 4:
-                        _a.sent();
-                        return [2 /*return*/];
+                        return [2 /*return*/, this.users.sendMessage(this.identity, recipient, new TextEncoder().encode(JSON.stringify(contactInviteMessage)))];
                 }
             });
         });
     };
-    ;
     TextileChat.prototype.getInvites = function (cb) {
         return __awaiter(this, void 0, void 0, function () {
-            var emitter, messages, privateKey, contactInvites, mailboxID;
+            var messages, privateKey, contactInvites, _i, messages_1, message, body, _a, _b, _c, _d, mailboxID;
             var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!this.users || !this.identity)
-                            return [2 /*return*/];
-                        emitter = new events_1.EventEmitter();
-                        emitter.on('invites', cb);
-                        return [4 /*yield*/, this.users.listInboxMessages()];
+            return __generator(this, function (_e) {
+                switch (_e.label) {
+                    case 0: return [4 /*yield*/, this.users.listInboxMessages()];
                     case 1:
-                        messages = _a.sent();
+                        messages = _e.sent();
                         privateKey = hub_1.PrivateKey.fromString(this.identity.toString());
-                        return [4 /*yield*/, Promise.all(messages.map(function (message) { return __awaiter(_this, void 0, void 0, function () {
-                                var body, _a, _b, _c, _d;
-                                return __generator(this, function (_e) {
-                                    switch (_e.label) {
-                                        case 0:
-                                            _b = (_a = JSON).parse;
-                                            _d = (_c = new TextDecoder()).decode;
-                                            return [4 /*yield*/, privateKey.decrypt(message.body)];
-                                        case 1:
-                                            body = _b.apply(_a, [_d.apply(_c, [_e.sent()])]);
-                                            if (body.type === "ContactInvite") {
-                                                return [2 /*return*/, { body: body, from: message.from, id: message.id }];
-                                            }
-                                            return [2 /*return*/, null];
-                                    }
-                                });
-                            }); }))];
+                        contactInvites = [];
+                        this.emitter.on('contactInvite', cb);
+                        _i = 0, messages_1 = messages;
+                        _e.label = 2;
                     case 2:
-                        contactInvites = (_a.sent()).filter(function (x) { return x !== null; });
-                        emitter.emit('invites', contactInvites);
+                        if (!(_i < messages_1.length)) return [3 /*break*/, 5];
+                        message = messages_1[_i];
+                        _b = (_a = JSON).parse;
+                        _d = (_c = new TextDecoder()).decode;
+                        return [4 /*yield*/, privateKey.decrypt(message.body)];
+                    case 3:
+                        body = _b.apply(_a, [_d.apply(_c, [_e.sent()])]);
+                        if (body.type === 'ContactInvite') {
+                            contactInvites.push({ body: body, from: message.from, id: message.id });
+                        }
+                        _e.label = 4;
+                    case 4:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5:
                         contacts.handleAcceptedInvites({
                             identity: privateKey,
                             threadId: this.threadId,
                             signer: this.signer,
                             users: this.users,
-                            client: this.client
+                            client: this.client,
                         });
                         return [4 /*yield*/, this.users.getMailboxID()];
-                    case 3:
-                        mailboxID = _a.sent();
+                    case 6:
+                        mailboxID = _e.sent();
                         this.users.watchInbox(mailboxID, function (reply) { return __awaiter(_this, void 0, void 0, function () {
                             var message, body, _a, _b, _c, _d, contactInviteMessage, contactAcceptedMessage;
                             return __generator(this, function (_e) {
@@ -309,16 +271,15 @@ var TextileChat = /** @class */ (function () {
                                         return [4 /*yield*/, privateKey.decrypt(message.body)];
                                     case 1:
                                         body = _b.apply(_a, [_d.apply(_c, [_e.sent()])]);
-                                        if (body.type === "ContactInvite") {
+                                        if (body.type === 'ContactInvite') {
                                             contactInviteMessage = {
                                                 body: body,
                                                 from: message.from,
                                                 id: message.id,
                                             };
-                                            contactInvites.push(contactInviteMessage);
-                                            emitter.emit('invites', contactInviteMessage);
+                                            this.emitter.emit('contactInvite', contactInviteMessage);
                                         }
-                                        if (body.type === "ContactInviteAccepted") {
+                                        if (body.type === 'ContactInviteAccepted') {
                                             contactAcceptedMessage = {
                                                 body: body,
                                                 from: message.from,
@@ -338,21 +299,17 @@ var TextileChat = /** @class */ (function () {
                                 }
                             });
                         }); });
-                        return [2 /*return*/];
+                        return [2 /*return*/, contactInvites];
                 }
             });
         });
     };
-    ;
     TextileChat.prototype.acceptContactInvite = function (contactInviteMessage) {
         return __awaiter(this, void 0, void 0, function () {
             var contactPubKey, dbInfo, privateKey;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0:
-                        if (!this.signer || !this.client || !this.threadId || !this.users || !this.identity || !this.domain)
-                            return [2 /*return*/];
-                        return [4 /*yield*/, index_1.getAndVerifyDomainPubKey(this.signer.provider, contactInviteMessage.body.domain, contactInviteMessage.from)];
+                    case 0: return [4 /*yield*/, helpers_1.getAndVerifyDomainPubKey(this.signer.provider, contactInviteMessage.body.domain, contactInviteMessage.from)];
                     case 1:
                         contactPubKey = _a.sent();
                         return [4 /*yield*/, this.client.getDBInfo(this.threadId)];
@@ -391,32 +348,19 @@ var TextileChat = /** @class */ (function () {
             });
         });
     };
-    ;
     TextileChat.prototype.declineInvite = function (contactInviteMessage) {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!this.users)
-                            return [2 /*return*/];
-                        return [4 /*yield*/, this.users.deleteInboxMessage(contactInviteMessage.id)];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
+                return [2 /*return*/, this.users.deleteInboxMessage(contactInviteMessage.id)];
             });
         });
     };
-    ;
     TextileChat.prototype.sendMessage = function (contactDomain, msg, index) {
         return __awaiter(this, void 0, void 0, function () {
             var contactPubKey, msgIndex, pubKey, message, _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
-                    case 0:
-                        if (!this.client || !this.threadId)
-                            return [2 /*return*/];
-                        return [4 /*yield*/, index_1.getDomainPubKey(this.signer.provider, contactDomain)];
+                    case 0: return [4 /*yield*/, helpers_1.getDomainPubKey(this.signer.provider, contactDomain)];
                     case 1:
                         contactPubKey = _b.sent();
                         return [4 /*yield*/, messages.getIndex({
@@ -430,60 +374,127 @@ var TextileChat = /** @class */ (function () {
                         _a = {
                             time: Date.now()
                         };
-                        return [4 /*yield*/, index_1.encrypt(pubKey, msg)];
+                        return [4 /*yield*/, helpers_1.encrypt(pubKey, msg)];
                     case 3:
                         message = (_a.body = _b.sent(),
-                            _a.owner = "",
-                            _a.id = "",
+                            _a.owner = '',
+                            _a.id = '',
                             _a);
-                        return [2 /*return*/, this.client.create(this.threadId, contactPubKey + "-" + index.toString(), [
-                                message,
-                            ])];
+                        return [2 /*return*/, this.client.create(this.threadId, contactPubKey + '-' + index.toString(), [message])];
                 }
             });
         });
     };
-    ;
+    TextileChat.prototype.loadMessages = function (pubKey, client, threadId, decryptKey, name, index) {
+        return __awaiter(this, void 0, void 0, function () {
+            var messageList, collectionName, msgs, _i, msgs_1, msg, decryptedBody;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        messageList = [];
+                        collectionName = pubKey + '-' + index.toString();
+                        return [4 /*yield*/, client.find(threadId, collectionName, {})];
+                    case 1:
+                        msgs = (_a.sent())
+                            .instancesList;
+                        _i = 0, msgs_1 = msgs;
+                        _a.label = 2;
+                    case 2:
+                        if (!(_i < msgs_1.length)) return [3 /*break*/, 5];
+                        msg = msgs_1[_i];
+                        return [4 /*yield*/, helpers_1.decryptAndDecode(decryptKey, msg.body)];
+                    case 3:
+                        decryptedBody = _a.sent();
+                        messageList.push({
+                            body: decryptedBody,
+                            time: msg.time,
+                            owner: name,
+                            id: msg._id,
+                        });
+                        _a.label = 4;
+                    case 4:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5:
+                        messageList.sort(function (a, b) { return a.time - b.time; });
+                        return [2 /*return*/, messageList];
+                }
+            });
+        });
+    };
+    TextileChat.prototype.listenMessages = function (pubKey, client, threadId, decryptKey, name, index, cb) {
+        return __awaiter(this, void 0, void 0, function () {
+            var collectionName;
+            var _this = this;
+            return __generator(this, function (_a) {
+                collectionName = pubKey + '-' + index.toString();
+                return [2 /*return*/, client.listen(threadId, [{ collectionName: collectionName }], function (msg) { return __awaiter(_this, void 0, void 0, function () {
+                        var decryptedBody, message;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (!msg.instance) {
+                                        return [2 /*return*/];
+                                    }
+                                    return [4 /*yield*/, helpers_1.decryptAndDecode(decryptKey, msg.instance.body)];
+                                case 1:
+                                    decryptedBody = _a.sent();
+                                    message = {
+                                        body: decryptedBody,
+                                        time: msg.instance.time,
+                                        owner: name,
+                                        id: msg._id,
+                                    };
+                                    cb(message);
+                                    return [2 /*return*/];
+                            }
+                        });
+                    }); })];
+            });
+        });
+    };
     TextileChat.prototype.loadContactMessages = function (contactDomain, index, cb) {
         return __awaiter(this, void 0, void 0, function () {
-            var emitter, _contactPubKey, _messagesIndex, _contactClient, e_1, contactThreadId, contactMessageIndex, privateKey, ownerDecryptKey, _a, readerDecryptKey, _b, messageList, loadMessages;
-            var _this = this;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var _i, _a, listener, _contactPubKey, _messagesIndex, _contactClient, e_1, contactThreadId, contactMessageIndex, privateKey, ownerDecryptKey, _b, readerDecryptKey, _c, messageList, owner, contact, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
+            return __generator(this, function (_p) {
+                switch (_p.label) {
                     case 0:
-                        if (!this.client || !this.threadId || !this.userAuth || !this.identity || !this.signer)
-                            return [2 /*return*/];
-                        emitter = new events_1.EventEmitter();
-                        emitter.on("newMessage", cb);
-                        return [4 /*yield*/, index_1.getDomainPubKey(this.signer.provider, contactDomain)];
+                        if (this.activeContactListeners) {
+                            for (_i = 0, _a = this.activeContactListeners; _i < _a.length; _i++) {
+                                listener = _a[_i];
+                                listener.close();
+                            }
+                        }
+                        this.activeContactListeners = [];
+                        return [4 /*yield*/, helpers_1.getDomainPubKey(this.signer.provider, contactDomain)];
                     case 1:
-                        _contactPubKey = _c.sent();
+                        _contactPubKey = _p.sent();
                         return [4 /*yield*/, messages.getIndex({
                                 client: this.client,
                                 threadId: this.threadId,
                                 pubKey: _contactPubKey,
                             })];
                     case 2:
-                        _messagesIndex = _c.sent();
+                        _messagesIndex = _p.sent();
                         return [4 /*yield*/, hub_1.Client.withUserAuth(this.userAuth)];
                     case 3:
-                        _contactClient = _c.sent();
-                        _c.label = 4;
+                        _contactClient = _p.sent();
+                        _p.label = 4;
                     case 4:
-                        _c.trys.push([4, 6, , 7]);
-                        // TODO: Ask textile about dbInfo
+                        _p.trys.push([4, 6, , 7]);
                         return [4 /*yield*/, _contactClient.joinFromInfo(JSON.parse(_messagesIndex.dbInfo))];
                     case 5:
-                        // TODO: Ask textile about dbInfo
-                        _c.sent();
+                        _p.sent();
                         return [3 /*break*/, 7];
                     case 6:
-                        e_1 = _c.sent();
-                        if (e_1.message === "db already exists") {
+                        e_1 = _p.sent();
+                        if (e_1.message === 'db already exists') {
                             // ignore, probably using same textile id
                         }
                         else {
-                            throw new Error(e_1.message);
+                            throw new errors_1.default(errors_1.ChatErrorCode.UnknownError, {
+                                errorMessage: e_1.message,
+                            });
                         }
                         return [3 /*break*/, 7];
                     case 7:
@@ -494,83 +505,56 @@ var TextileChat = /** @class */ (function () {
                                 pubKey: this.identity.public.toString(),
                             })];
                     case 8:
-                        contactMessageIndex = _c.sent();
+                        contactMessageIndex = _p.sent();
                         privateKey = hub_1.PrivateKey.fromString(this.identity.toString());
-                        _a = hub_1.PrivateKey.bind;
-                        return [4 /*yield*/, index_1.decrypt(privateKey, _messagesIndex.ownerDecryptKey)];
-                    case 9:
-                        ownerDecryptKey = new (_a.apply(hub_1.PrivateKey, [void 0, _c.sent()]))();
                         _b = hub_1.PrivateKey.bind;
-                        return [4 /*yield*/, index_1.decrypt(privateKey, contactMessageIndex.readerDecryptKey)];
+                        return [4 /*yield*/, helpers_1.decrypt(privateKey, _messagesIndex.ownerDecryptKey)];
+                    case 9:
+                        ownerDecryptKey = new (_b.apply(hub_1.PrivateKey, [void 0, _p.sent()]))();
+                        _c = hub_1.PrivateKey.bind;
+                        return [4 /*yield*/, helpers_1.decrypt(privateKey, contactMessageIndex.readerDecryptKey)];
                     case 10:
-                        readerDecryptKey = new (_b.apply(hub_1.PrivateKey, [void 0, _c.sent()]))();
+                        readerDecryptKey = new (_c.apply(hub_1.PrivateKey, [void 0, _p.sent()]))();
                         messageList = [];
-                        loadMessages = function (pubKey, client, threadId, decryptKey, name, index) { return __awaiter(_this, void 0, void 0, function () {
-                            var collectionName, msgs;
-                            var _this = this;
-                            return __generator(this, function (_a) {
-                                switch (_a.label) {
-                                    case 0:
-                                        collectionName = pubKey + "-" + index.toString();
-                                        return [4 /*yield*/, client.find(threadId, collectionName, {})];
-                                    case 1:
-                                        msgs = (_a.sent()).instancesList;
-                                        return [4 /*yield*/, Promise.all(msgs.map(function (msg) { return __awaiter(_this, void 0, void 0, function () {
-                                                var decryptedBody;
-                                                return __generator(this, function (_a) {
-                                                    switch (_a.label) {
-                                                        case 0: return [4 /*yield*/, index_1.decryptAndDecode(decryptKey, msg.body)];
-                                                        case 1:
-                                                            decryptedBody = _a.sent();
-                                                            messageList.push({
-                                                                body: decryptedBody,
-                                                                time: msg.time,
-                                                                owner: name,
-                                                                id: msg._id,
-                                                            });
-                                                            return [2 /*return*/];
-                                                    }
-                                                });
-                                            }); }))];
-                                    case 2:
-                                        _a.sent();
-                                        messageList.sort(function (a, b) { return a.time - b.time; });
-                                        emitter.emit('newMessage', messageList);
-                                        client.listen(threadId, [{ collectionName: collectionName }], function (msg) { return __awaiter(_this, void 0, void 0, function () {
-                                            var decryptedBody;
-                                            return __generator(this, function (_a) {
-                                                switch (_a.label) {
-                                                    case 0:
-                                                        if (!msg.instance) {
-                                                            return [2 /*return*/];
-                                                        }
-                                                        return [4 /*yield*/, index_1.decryptAndDecode(decryptKey, msg.instance.body)];
-                                                    case 1:
-                                                        decryptedBody = _a.sent();
-                                                        messageList.push({
-                                                            body: decryptedBody,
-                                                            time: msg.instance.time,
-                                                            owner: name,
-                                                            id: msg._id,
-                                                        });
-                                                        messageList.sort(function (a, b) { return a.time - b.time; });
-                                                        emitter.emit('newMessage', messageList);
-                                                        return [2 /*return*/];
-                                                }
-                                            });
-                                        }); });
-                                        return [2 /*return*/];
-                                }
-                            });
-                        }); };
-                        loadMessages(_contactPubKey, this.client, this.threadId, ownerDecryptKey, this.domain, index);
-                        loadMessages(this.identity.public.toString(), _contactClient, contactThreadId, readerDecryptKey, contactDomain, index);
-                        return [2 /*return*/];
+                        owner = [
+                            _contactPubKey,
+                            this.client,
+                            this.threadId,
+                            ownerDecryptKey,
+                            this.domain,
+                            index,
+                        ];
+                        contact = [
+                            this.identity.public.toString(),
+                            _contactClient,
+                            contactThreadId,
+                            readerDecryptKey,
+                            contactDomain,
+                            index,
+                        ];
+                        _e = (_d = messageList.push).apply;
+                        _f = [messageList];
+                        return [4 /*yield*/, this.loadMessages.apply(this, owner)];
+                    case 11:
+                        _e.apply(_d, _f.concat([(_p.sent())]));
+                        _h = (_g = messageList.push).apply;
+                        _j = [messageList];
+                        return [4 /*yield*/, this.loadMessages.apply(this, contact)];
+                    case 12:
+                        _h.apply(_g, _j.concat([(_p.sent())]));
+                        _l = (_k = this.activeContactListeners).push;
+                        return [4 /*yield*/, this.listenMessages.apply(this, __spreadArrays(owner, [cb]))];
+                    case 13:
+                        _l.apply(_k, [_p.sent()]);
+                        _o = (_m = this.activeContactListeners).push;
+                        return [4 /*yield*/, this.listenMessages.apply(this, __spreadArrays(contact, [cb]))];
+                    case 14:
+                        _o.apply(_m, [_p.sent()]);
+                        return [2 /*return*/, messageList];
                 }
             });
         });
     };
-    ;
     return TextileChat;
 }());
 exports.default = TextileChat;

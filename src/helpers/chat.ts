@@ -1,15 +1,20 @@
-import { Client, ThreadID } from '@textile/hub';
+import { Client, Users, ThreadID } from '@textile/hub';
 import * as contacts from './contacts';
 
-const getChatThreadId = async (client: Client): Promise<ThreadID> => {
-  const threads = await client.listThreads();
-  for (const thread of threads.listList) {
-    if (thread.name === 'chat') {
-      return ThreadID.fromString(thread.id);
+const getChatThreadId = async (
+  users: Users,
+  client: Client,
+): Promise<ThreadID> => {
+  let threadId: ThreadID = ThreadID.fromRandom();
+  try {
+    const thread = await users.getThread('chat');
+    if (thread) {
+      threadId = ThreadID.fromString(thread.id);
     }
+  } catch {
+    threadId = await client.newDB(ThreadID.fromRandom(), 'chat');
   }
-  const threadId = ThreadID.fromRandom();
-  return client.newDB(threadId, 'chat');
+  return threadId;
 };
 
 export { getChatThreadId, contacts };

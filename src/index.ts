@@ -88,7 +88,7 @@ export default class TextileChat {
     this.users = Users.withUserAuth(userAuth);
     await this.users.getToken(identity);
     await this.client.getToken(identity);
-    this.threadId = await getChatThreadId(this.client);
+    this.threadId = await getChatThreadId(this.users, this.client);
     this.client.find(this.threadId, 'contacts', {}).catch(() => {
       return this.client.newCollection(
         this.threadId,

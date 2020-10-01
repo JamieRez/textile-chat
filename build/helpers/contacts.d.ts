@@ -1,13 +1,13 @@
-import { Client, Users, PrivateKey, ThreadID } from "@textile/hub";
-import { Signer } from "ethers";
-import { DBInfo } from "@textile/threads-client";
+import { Client, Users, PrivateKey, ThreadID } from '@textile/hub';
+import { Signer } from 'ethers';
+import { DBInfo } from '@textile/threads-client';
 export interface InviteMessage {
     from: string;
     id: string;
     body: InviteMessageBody;
 }
 export interface InviteMessageBody {
-    type: "ContactInviteAccepted" | "ContactInvite";
+    type: 'ContactInviteAccepted' | 'ContactInvite';
     sig: string;
     domain: string;
     dbInfo: string;
@@ -26,7 +26,7 @@ declare const sendInvite: ({ domain, contactDomain, identity, signer, users, dbI
     users: Users;
     dbInfo: DBInfo;
     threadId: ThreadID;
-}) => Promise<void>;
+}) => Promise<import("@textile/hub").UserMessage>;
 declare const sendInviteAccepted: ({ domain, contactInviteMessage, identity, users, dbInfo, threadId, }: {
     domain: string;
     contactInviteMessage: InviteMessage;
@@ -74,4 +74,4 @@ declare const declineInvite: ({ contactInviteMessage, users, }: {
     contactInviteMessage: InviteMessage;
     users: Users;
 }) => Promise<void>;
-export { getInvites, acceptInvite, declineInvite, sendInvite, sendInviteAccepted, configure, getContacts, deleteContacts, handleAcceptedInvite, handleAcceptedInvites, contactCreate };
+export { getInvites, acceptInvite, declineInvite, sendInvite, sendInviteAccepted, configure, getContacts, deleteContacts, handleAcceptedInvite, handleAcceptedInvites, contactCreate, };

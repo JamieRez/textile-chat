@@ -1,10 +1,10 @@
-import { ethers } from "ethers";
-import { PrivateKey, UserAuth, ThreadID, Client, Query, PublicKey } from "@textile/hub";
+import { ethers } from 'ethers';
+import { PrivateKey, UserAuth, ThreadID, Client, Query, PublicKey } from '@textile/hub';
 declare const getIdentity: (signer: ethers.Signer) => Promise<PrivateKey>;
 declare const configureDomain: (textileId: PrivateKey, domain: string, signer: ethers.Signer) => Promise<void>;
-declare const getDomainPubKey: (provider: ethers.providers.Provider, domain: string) => Promise<any>;
+declare const getDomainPubKey: (provider: ethers.providers.Provider, domain: string) => Promise<string>;
 declare const getAndVerifyDomainPubKey: (provider: ethers.providers.Provider, domain: string, pubKey: string) => Promise<string>;
-declare const auth: (textileId: PrivateKey, domain: string, signer: ethers.Signer) => Promise<UserAuth>;
+declare const auth: (socketUrl: string, textileId: PrivateKey, domain: string, signer: ethers.Signer) => Promise<UserAuth>;
 declare const findOrCreateCollection: ({ threadId, client, collectionName, schema, query, }: {
     threadId: ThreadID;
     client: Client;
