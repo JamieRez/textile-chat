@@ -19,13 +19,12 @@ const getIdentityFromSignature = (signature: string) => {
 };
 
 const loginWithChallenge = (
+  socketUrl: string,
   domain: string,
   signer: ethers.Signer,
   id: PrivateKey,
 ): Promise<UserAuth> => {
   return new Promise((resolve, reject) => {
-    const socketUrl = `ws://localhost:8080/ws/textile-auth`;
-
     const socket = new WebSocket(socketUrl);
 
     socket.onopen = () => {
@@ -57,7 +56,7 @@ const loginWithChallenge = (
             break;
           }
           case 'token': {
-            resolve({ ...data.value, key: 'bk44oyenlgauefar67jn56p7edm' });
+            resolve({ ...data.value });
             break;
           }
         }
@@ -87,7 +86,7 @@ const configureDomain = async (
 const getDomainPubKey = (
   provider: ethers.providers.Provider,
   domain: string,
-) => {
+): Promise<string> => {
   return getRecord(provider, domain, 'social.textile.pubkey');
 };
 
@@ -111,11 +110,17 @@ const getAndVerifyDomainPubKey = async (
 };
 
 const auth = async (
+  socketUrl: string,
   textileId: PrivateKey,
   domain: string,
   signer: ethers.Signer,
 ): Promise<UserAuth> => {
-  const userAuth = await loginWithChallenge(domain, signer, textileId);
+  const userAuth = await loginWithChallenge(
+    socketUrl,
+    domain,
+    signer,
+    textileId,
+  );
   return userAuth;
 };
 

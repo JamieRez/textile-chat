@@ -1,4 +1,4 @@
-import { Client, ThreadID, UserMessage } from '@textile/hub';
+import { Client, ThreadID } from '@textile/hub';
 import * as contacts from './contacts';
 
 const getChatThreadId = async (client: Client): Promise<ThreadID> => {

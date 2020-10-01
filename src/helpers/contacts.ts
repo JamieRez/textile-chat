@@ -93,7 +93,7 @@ const sendInvite = async ({
     dbInfo: JSON.stringify(dbInfo),
     threadId: threadId.toString(),
   };
-  await users.sendMessage(
+  return users.sendMessage(
     identity,
     recipient,
     new TextEncoder().encode(JSON.stringify(contactInviteMessage)),
@@ -318,7 +318,7 @@ const declineInvite = async ({
   contactInviteMessage: InviteMessage;
   users: Users;
 }) => {
-  await users.deleteInboxMessage(contactInviteMessage.id);
+  return users.deleteInboxMessage(contactInviteMessage.id);
 };
 
 export {

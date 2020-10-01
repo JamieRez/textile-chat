@@ -4,10 +4,8 @@ import {
   UserAuth,
   ThreadID,
   Client,
-  Query,
   PublicKey,
   Identity,
-  DBInfo,
   Where,
 } from '@textile/hub';
 import ethers, { Signer } from 'ethers';
@@ -46,8 +44,15 @@ export default class TextileChat {
   users: Users;
   provider: ethers.providers.Web3Provider;
   emitter: EventEmitter;
+  activeContactListeners: Array<{ close: () => void }> = [];
+  textileSocketUrl: string;
 
-  constructor(domain: string, web3Provider: ethers.providers.Web3Provider) {
+  constructor(
+    domain: string,
+    textileSocketUrl: string,
+    web3Provider: ethers.providers.Web3Provider,
+  ) {
+    this.textileSocketUrl = textileSocketUrl;
     this.domain = domain;
     this.contactsList = [];
     this.contactInvitesList = [];
@@ -71,7 +76,12 @@ export default class TextileChat {
         expected: identity.public.toString(),
       });
     }
-    const userAuth = await auth(identity, this.domain, this.signer);
+    const userAuth = await auth(
+      this.textileSocketUrl,
+      identity,
+      this.domain,
+      this.signer,
+    );
     this.identity = identity;
     this.userAuth = userAuth;
     this.client = Client.withUserAuth(userAuth);
@@ -92,13 +102,6 @@ export default class TextileChat {
     }
   }
 
-  on<Event extends Events>(
-    event: Event,
-    cb: (params: EventCallbackParams[Event]) => void,
-  ) {
-    this.emitter.on(event, cb);
-  }
-
   async deleteContact(contactDomain: string) {
     const q = new Where('domain').eq(contactDomain);
     const contact = (await this.client.find(this.threadId, 'contacts', q))
@@ -108,15 +111,13 @@ export default class TextileChat {
     }
   }
 
-  async getContacts(
-    cb: (contacts: Array<{ domain: string; id: string }>) => void,
-  ) {
+  async getContacts(cb: (contact: { domain: string; id: string }) => void) {
+    this.emitter.on('contact', cb);
     const contacts: { domain: string; id: string }[] = [];
     this.client.find(this.threadId, 'contacts', {}).then((result) => {
       result.instancesList.map((contact) => {
         contacts.push({ domain: contact.domain, id: contact._id });
       });
-      this.emitter.emit('contacts', contacts);
     });
     this.client.listen(
       this.threadId,
@@ -125,13 +126,13 @@ export default class TextileChat {
         if (!contact?.instance) {
           return;
         }
-        contacts.push({
+        this.emitter.emit('contact', {
           domain: contact.instance.domain,
           id: contact.instance._id,
         });
-        this.emitter.emit('contacts', contacts);
       },
     );
+    return contacts;
   }
 
   async sendContactInvite(contactDomain: string) {
@@ -168,6 +169,7 @@ export default class TextileChat {
     const messages = await this.users.listInboxMessages();
     const privateKey = PrivateKey.fromString(this.identity.toString());
     const contactInvites: contacts.InviteMessage[] = [];
+    this.emitter.on('contactInvite', cb);
     for (const message of messages) {
       const body: contacts.InviteMessageBody = JSON.parse(
         new TextDecoder().decode(await privateKey.decrypt(message.body)),
@@ -176,8 +178,6 @@ export default class TextileChat {
         contactInvites.push({ body, from: message.from, id: message.id });
       }
     }
-    this.emitter.emit('invites', contactInvites);
-
     contacts.handleAcceptedInvites({
       identity: privateKey,
       threadId: this.threadId,
@@ -200,8 +200,7 @@ export default class TextileChat {
             from: message.from,
             id: message.id,
           };
-          contactInvites.push(contactInviteMessage);
-          this.emitter.emit('invites', contactInviteMessage);
+          this.emitter.emit('contactInvite', contactInviteMessage);
         }
         if (body.type === 'ContactInviteAccepted') {
           const contactAcceptedMessage: contacts.InviteMessage = {
@@ -220,6 +219,7 @@ export default class TextileChat {
         }
       }
     });
+    return contactInvites;
   }
 
   async acceptContactInvite(contactInviteMessage: contacts.InviteMessage) {
@@ -305,8 +305,20 @@ export default class TextileChat {
       });
     }
     messageList.sort((a, b) => a.time - b.time);
-    this.emitter.emit('messages', messageList);
-    client.listen(threadId, [{ collectionName }], async (msg: any) => {
+    return messageList;
+  }
+
+  async listenMessages(
+    pubKey: string,
+    client: Client,
+    threadId: ThreadID,
+    decryptKey: PrivateKey,
+    name: string,
+    index: number,
+    cb: (message: messages.Message) => void,
+  ): Promise<{ close: () => void }> {
+    const collectionName = pubKey + '-' + index.toString();
+    return client.listen(threadId, [{ collectionName }], async (msg: any) => {
       if (!msg.instance) {
         return;
       }
@@ -314,26 +326,27 @@ export default class TextileChat {
         decryptKey,
         msg.instance.body,
       );
-      messageList.push({
+      const message = {
         body: decryptedBody,
         time: msg.instance.time,
         owner: name,
         id: msg._id,
-      });
-      messageList.sort((a, b) => a.time - b.time);
-      this.emitter.emit('messages', messageList);
+      };
+      cb(message);
     });
   }
 
   async loadContactMessages(
     contactDomain: string,
     index: number,
-    cb: () => void,
-  ) {
-    if (this.activeContact) {
-
+    cb: (message: messages.Message) => void,
+  ): Promise<messages.Message[]> {
+    if (this.activeContactListeners) {
+      for (const listener of this.activeContactListeners) {
+        listener.close();
+      }
     }
-    this.activeContact = contactDomain;
+    this.activeContactListeners = [];
     const _contactPubKey = await getDomainPubKey(
       this.signer.provider!,
       contactDomain,
@@ -371,21 +384,31 @@ export default class TextileChat {
       await decrypt(privateKey, contactMessageIndex.readerDecryptKey),
     );
 
-    this.loadMessages(
+    const messageList: messages.Message[] = [];
+    const owner = [
       _contactPubKey,
       this.client,
       this.threadId,
       ownerDecryptKey,
       this.domain,
       index,
-    );
-    this.loadMessages(
+    ];
+    const contact = [
       this.identity.public.toString(),
       _contactClient,
       contactThreadId,
       readerDecryptKey,
       contactDomain,
       index,
+    ];
+    messageList.push(...(await this.loadMessages.apply(this, owner)));
+    messageList.push(...(await this.loadMessages.apply(this, contact)));
+    this.activeContactListeners.push(
+      await this.listenMessages.apply(this, [...owner, cb]),
     );
+    this.activeContactListeners.push(
+      await this.listenMessages.apply(this, [...contact, cb]),
+    );
+    return messageList;
   }
 }
