@@ -125,7 +125,10 @@ var TextileChat = /** @class */ (function () {
                     case 6:
                         _a.threadId = _b.sent();
                         this.client.find(this.threadId, 'contacts', {}).catch(function () {
-                            return _this.client.newCollection(_this.threadId, 'contacts', schemas_1.default.contacts);
+                            return _this.client.newCollection(_this.threadId, {
+                                name: 'contacts',
+                                schema: schemas_1.default.contacts,
+                            });
                         });
                         return [4 /*yield*/, this.users.getMailboxID().catch(function () { return null; })];
                     case 7:
@@ -149,8 +152,7 @@ var TextileChat = /** @class */ (function () {
                         q = new hub_1.Where('domain').eq(contactDomain);
                         return [4 /*yield*/, this.client.find(this.threadId, 'contacts', q)];
                     case 1:
-                        contact = (_a.sent())
-                            .instancesList[0];
+                        contact = (_a.sent())[0];
                         if (contact) {
                             return [2 /*return*/, this.client.delete(this.threadId, 'contacts', [contact._id])];
                         }
@@ -167,7 +169,7 @@ var TextileChat = /** @class */ (function () {
                 this.emitter.on('contact', cb);
                 contacts = [];
                 this.client.find(this.threadId, 'contacts', {}).then(function (result) {
-                    result.instancesList.map(function (contact) {
+                    result.map(function (contact) {
                         contacts.push({ domain: contact.domain, id: contact._id });
                     });
                 });
@@ -395,8 +397,7 @@ var TextileChat = /** @class */ (function () {
                         collectionName = pubKey + '-' + index.toString();
                         return [4 /*yield*/, client.find(threadId, collectionName, {})];
                     case 1:
-                        msgs = (_a.sent())
-                            .instancesList;
+                        msgs = _a.sent();
                         _i = 0, msgs_1 = msgs;
                         _a.label = 2;
                     case 2:

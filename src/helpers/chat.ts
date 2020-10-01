@@ -5,16 +5,13 @@ const getChatThreadId = async (
   users: Users,
   client: Client,
 ): Promise<ThreadID> => {
-  let threadId: ThreadID = ThreadID.fromRandom();
   try {
-    const thread = await users.getThread('chat');
+    const thread = await users.getThread('unstoppable-chat');
     if (thread) {
-      threadId = ThreadID.fromString(thread.id);
+      return thread.id;
     }
-  } catch {
-    threadId = await client.newDB(ThreadID.fromRandom(), 'chat');
-  }
-  return threadId;
+  } catch {}
+  return client.newDB(ThreadID.fromRandom(), 'unstoppable-chat');
 };
 
 export { getChatThreadId, contacts };

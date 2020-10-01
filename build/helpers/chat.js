@@ -65,17 +65,17 @@ var getChatThreadId = function (users, client) { return __awaiter(void 0, void 0
         switch (_b.label) {
             case 0:
                 _b.trys.push([0, 2, , 3]);
-                return [4 /*yield*/, users.getThread('chat')];
+                return [4 /*yield*/, users.getThread('unstoppable-chat')];
             case 1:
                 thread = _b.sent();
                 if (thread) {
-                    return [2 /*return*/, hub_1.ThreadID.fromString(thread.id)];
+                    return [2 /*return*/, thread.id];
                 }
                 return [3 /*break*/, 3];
             case 2:
                 _a = _b.sent();
                 return [3 /*break*/, 3];
-            case 3: return [2 /*return*/, client.newDB(hub_1.ThreadID.fromRandom(), 'chat')];
+            case 3: return [2 /*return*/, client.newDB(hub_1.ThreadID.fromRandom(), 'unstoppable-chat')];
         }
     });
 }); };

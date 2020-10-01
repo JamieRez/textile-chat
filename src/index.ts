@@ -90,11 +90,10 @@ export default class TextileChat {
     await this.client.getToken(identity);
     this.threadId = await getChatThreadId(this.users, this.client);
     this.client.find(this.threadId, 'contacts', {}).catch(() => {
-      return this.client.newCollection(
-        this.threadId,
-        'contacts',
-        schemas.contacts,
-      );
+      return this.client.newCollection(this.threadId, {
+        name: 'contacts',
+        schema: schemas.contacts,
+      });
     });
     const mailboxId = await this.users.getMailboxID().catch(() => null);
     if (!mailboxId) {
@@ -104,8 +103,9 @@ export default class TextileChat {
 
   async deleteContact(contactDomain: string) {
     const q = new Where('domain').eq(contactDomain);
-    const contact = (await this.client.find(this.threadId, 'contacts', q))
-      .instancesList[0];
+    const contact: any = (
+      await this.client.find(this.threadId, 'contacts', q)
+    )[0];
     if (contact) {
       return this.client.delete(this.threadId, 'contacts', [contact._id]);
     }
@@ -114,8 +114,8 @@ export default class TextileChat {
   async getContacts(cb: (contact: { domain: string; id: string }) => void) {
     this.emitter.on('contact', cb);
     const contacts: { domain: string; id: string }[] = [];
-    this.client.find(this.threadId, 'contacts', {}).then((result) => {
-      result.instancesList.map((contact) => {
+    this.client.find(this.threadId, 'contacts', {}).then((result: any) => {
+      result.map((contact) => {
         contacts.push({ domain: contact.domain, id: contact._id });
       });
     });
@@ -293,8 +293,7 @@ export default class TextileChat {
   ) {
     const messageList: messages.Message[] = [];
     const collectionName = pubKey + '-' + index.toString();
-    const msgs = (await client.find(threadId, collectionName, {}))
-      .instancesList;
+    const msgs: any[] = await client.find(threadId, collectionName, {});
     for (const msg of msgs) {
       const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
       messageList.push({

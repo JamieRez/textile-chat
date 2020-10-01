@@ -42,11 +42,11 @@ const deleteContacts = (
 };
 
 const deleteAllContacts = async (client: Client, threadId: ThreadID) => {
-  const contacts = await client.find(threadId, 'contacts', {});
+  const contacts: any[] = await client.find(threadId, 'contacts', {});
   return deleteContacts(
     client,
     threadId,
-    contacts.instancesList.map((contact) => contact._id),
+    contacts.map((contact) => contact._id),
   );
 };
 
@@ -55,7 +55,7 @@ const getContacts = async (
   threadId: ThreadID,
 ): Promise<{ id: string; domain: string }[]> => {
   return client.find(threadId, 'contacts', {}).then((result) => {
-    return result.instancesList.map((contact) => {
+    return result.map((contact: any) => {
       return { domain: contact.domain, id: contact._id };
     });
   });
@@ -147,7 +147,10 @@ const configure = async ({
   return client
     .find(threadId, 'contacts', {})
     .catch(() => {
-      return client.newCollection(threadId, 'contacts', schemas.contacts);
+      return client.newCollection(threadId, {
+        name: 'contacts',
+        schema: schemas.contacts,
+      });
     })
     .then(() => {
       return handleAcceptedInvites({

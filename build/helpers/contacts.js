@@ -76,14 +76,14 @@ var deleteAllContacts = function (client, threadId) { return __awaiter(void 0, v
             case 0: return [4 /*yield*/, client.find(threadId, 'contacts', {})];
             case 1:
                 contacts = _a.sent();
-                return [2 /*return*/, deleteContacts(client, threadId, contacts.instancesList.map(function (contact) { return contact._id; }))];
+                return [2 /*return*/, deleteContacts(client, threadId, contacts.map(function (contact) { return contact._id; }))];
         }
     });
 }); };
 var getContacts = function (client, threadId) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         return [2 /*return*/, client.find(threadId, 'contacts', {}).then(function (result) {
-                return result.instancesList.map(function (contact) {
+                return result.map(function (contact) {
                     return { domain: contact.domain, id: contact._id };
                 });
             })];
@@ -141,7 +141,10 @@ var configure = function (_a) {
             return [2 /*return*/, client
                     .find(threadId, 'contacts', {})
                     .catch(function () {
-                    return client.newCollection(threadId, 'contacts', schemas_1.default.contacts);
+                    return client.newCollection(threadId, {
+                        name: 'contacts',
+                        schema: schemas_1.default.contacts,
+                    });
                 })
                     .then(function () {
                     return handleAcceptedInvites({

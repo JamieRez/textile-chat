@@ -138,7 +138,7 @@ const findOrCreateCollection = ({
   query?: Query;
 }) => {
   return client.find(threadId, collectionName, query || {}).catch((e) => {
-    return client.newCollection(threadId, collectionName, schema);
+    return client.newCollection(threadId, { name: collectionName, schema });
   });
 };
 

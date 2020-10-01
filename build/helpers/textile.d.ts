@@ -11,7 +11,7 @@ declare const findOrCreateCollection: ({ threadId, client, collectionName, schem
     collectionName: string;
     schema: Object;
     query?: Query | undefined;
-}) => Promise<void | import("@textile/threads-client").InstanceList<any>>;
+}) => Promise<void | unknown[]>;
 declare const decryptAndDecode: (identity: PrivateKey, message: string) => Promise<string>;
 declare const encrypt: (pubKey: PublicKey, message: string) => Promise<string>;
 declare const decrypt: (identity: PrivateKey, message: string) => Promise<Uint8Array>;

@@ -152,7 +152,7 @@ var getIndex = function (_a) {
                     return [4 /*yield*/, client.find(threadId, pubKey + '-index', q)];
                 case 1:
                     collection = _b.sent();
-                    return [2 /*return*/, collection.instancesList[0]];
+                    return [2 /*return*/, collection[0]];
             }
         });
     });
@@ -209,7 +209,7 @@ var loadMessages = function (_a) {
                     collectionName = pubKey + '-' + index.toString();
                     return [4 /*yield*/, client.find(threadId, collectionName, {})];
                 case 1:
-                    msgs = (_b.sent()).instancesList;
+                    msgs = _b.sent();
                     messageList = [];
                     _i = 0, msgs_1 = msgs;
                     _b.label = 2;
