@@ -145,15 +145,19 @@ var TextileChat = /** @class */ (function () {
                                     _b.sent();
                                     _b.label = 16;
                                 case 16: 
-                                //DELETE THE MESSAGES INDEX
-                                // const c: any = await client.find(threadId, "contacts", {});
-                                // await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+                                // try{
+                                //   const c: any = await client.find(threadId, "contacts", {});
+                                //   await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+                                // } catch {
+                                // }
                                 // await client.deleteCollection(threadId, 'contacts');
                                 return [4 /*yield*/, contacts.configure({ identity: identity, threadId: threadId, signer: signer, users: users, client: client })];
                                 case 17:
-                                    //DELETE THE MESSAGES INDEX
-                                    // const c: any = await client.find(threadId, "contacts", {});
-                                    // await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+                                    // try{
+                                    //   const c: any = await client.find(threadId, "contacts", {});
+                                    //   await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+                                    // } catch {
+                                    // }
                                     // await client.deleteCollection(threadId, 'contacts');
                                     _b.sent();
                                     resolve();
@@ -200,7 +204,7 @@ var TextileChat = /** @class */ (function () {
                 emitter = new events_1.EventEmitter();
                 emitter.on('contacts', cb);
                 contacts = [];
-                q = new hub_1.Where("owner").eq(this.identity.toString());
+                q = new hub_1.Where("owner").eq(this.identity.public.toString());
                 this.client.find(this.threadId, "contacts", q).then(function (result) {
                     result.map(function (contact) {
                         contacts.push({ domain: contact.domain, id: contact._id });
@@ -527,7 +531,7 @@ var TextileChat = /** @class */ (function () {
                                         q = new hub_1.Where("owner").eq(pubKey);
                                         return [4 /*yield*/, client.find(threadId, collectionName, q)];
                                     case 1:
-                                        msgs = (_a.sent()).instancesList;
+                                        msgs = (_a.sent());
                                         return [4 /*yield*/, Promise.all(msgs.map(function (msg) { return __awaiter(_this, void 0, void 0, function () {
                                                 var decryptedBody;
                                                 return __generator(this, function (_a) {
@@ -554,6 +558,7 @@ var TextileChat = /** @class */ (function () {
                                             return __generator(this, function (_a) {
                                                 switch (_a.label) {
                                                     case 0:
+                                                        console.log(msg);
                                                         if (!msg.instance) {
                                                             return [2 /*return*/];
                                                         }

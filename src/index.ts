@@ -90,9 +90,12 @@ export default class TextileChat {
         if (!mailboxId) {
           await users.setupMailbox();
         }
-        //DELETE THE MESSAGES INDEX
-        // const c: any = await client.find(threadId, "contacts", {});
-        // await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+        // try{
+        //   const c: any = await client.find(threadId, "contacts", {});
+        //   await client.delete(threadId, "contacts", c.map((contact: any) => contact._id));
+        // } catch {
+
+        // }
         // await client.deleteCollection(threadId, 'contacts');
         await contacts.configure({identity, threadId, signer, users, client});
         resolve();
@@ -118,7 +121,7 @@ export default class TextileChat {
     const emitter = new EventEmitter();
     emitter.on('contacts', cb)
     const contacts: {domain: string, id: string}[] = [];
-    const q = new Where("owner").eq(this.identity.toString());
+    const q = new Where("owner").eq(this.identity.public.toString());
     this.client.find(this.threadId, "contacts", q).then((result) => {
       result.map((contact: any) => {
         contacts.push({ domain: contact.domain, id: contact._id });
@@ -336,7 +339,7 @@ export default class TextileChat {
     ) => {
       const collectionName = pubKey + "-" + index.toString();
       const q = new Where("owner").eq(pubKey);
-      const msgs = (await client.find(threadId, collectionName, q)).instancesList;
+      const msgs = (await client.find(threadId, collectionName, q));
       await Promise.all(
         msgs.map(async (msg) => {
           const decryptedBody = await decryptAndDecode(decryptKey, msg.body);

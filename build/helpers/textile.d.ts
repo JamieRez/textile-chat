@@ -11,7 +11,7 @@ declare const findOrCreateCollection: ({ threadId, client, collectionName, schem
     collectionName: string;
     schema: Object;
     query?: Query | undefined;
-    writeValidator: string | ((writer: string, event: any, instance: any) => boolean);
+    writeValidator?: string | ((writer: string, event: any, instance: any) => boolean) | undefined;
 }) => Promise<void | unknown[]>;
 declare const decryptAndDecode: (identity: PrivateKey, message: string) => Promise<string>;
 declare const encrypt: (pubKey: PublicKey, message: string) => Promise<string>;

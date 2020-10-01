@@ -102,13 +102,13 @@ const createIndex = async ({
     _id: "index",
     owner: identity.public.toString()
   };
-  try {
-    await client.delete(threadId, messagesIndexCollectionName, [
-      messagesIndex._id,
-    ]);
-  } catch (e) {
-    console.log(e);
-  }
+  // try {
+  //   await client.delete(threadId, messagesIndexCollectionName, [
+  //     messagesIndex._id,
+  //   ]);
+  // } catch (e) {
+  //   console.log(e);
+  // }
   await client
     .create(threadId, messagesIndexCollectionName, [messagesIndex])
     .catch((e) => {
@@ -120,7 +120,8 @@ const createIndex = async ({
     });
 
   // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
-  // await client.delete(threadId, messagesIndexCollectionName, m2.map((msg: any) => msg._id));
+  // await client.delete(threadId, contactPubKey + "-0", m2.map((msg: any) => msg._id));
+  
   // try{
   //   await client.deleteCollection(threadId, contactPubKey + "-0");
   // } catch {
