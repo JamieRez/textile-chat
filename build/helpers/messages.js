@@ -49,7 +49,7 @@ var CONTACT_INDEX_LIMIT = 50;
 var createIndex = function (_a) {
     var threadId = _a.threadId, contactPubKey = _a.contactPubKey, client = _a.client, privateKey = _a.privateKey, contactThreadId = _a.contactThreadId, contactDbInfo = _a.contactDbInfo, identity = _a.identity;
     return __awaiter(void 0, void 0, void 0, function () {
-        var messagesIndexCollectionName, contact, encryptionWallet, readerDecryptKey, ownerDecryptKey, messagesIndex;
+        var messagesIndexCollectionName, contact, encryptionWallet, readerDecryptKey, ownerDecryptKey, messagesIndex, e_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -111,31 +111,30 @@ var createIndex = function (_a) {
                         _id: "index",
                         owner: identity.public.toString()
                     };
-                    // try {
-                    //   await client.delete(threadId, messagesIndexCollectionName, [
-                    //     messagesIndex._id,
-                    //   ]);
-                    // } catch (e) {
-                    //   console.log(e);
-                    // }
-                    return [4 /*yield*/, client
-                            .create(threadId, messagesIndexCollectionName, [messagesIndex])
-                            .catch(function (e) {
-                            if (e.message === "can't create already existing instance") {
-                                // Contact index already created - ignore error
-                            }
-                            else {
-                                throw Error(e.message);
-                            }
-                        })];
+                    _b.label = 4;
                 case 4:
-                    // try {
-                    //   await client.delete(threadId, messagesIndexCollectionName, [
-                    //     messagesIndex._id,
-                    //   ]);
-                    // } catch (e) {
-                    //   console.log(e);
-                    // }
+                    _b.trys.push([4, 6, , 7]);
+                    return [4 /*yield*/, client.delete(threadId, messagesIndexCollectionName, [
+                            messagesIndex._id,
+                        ])];
+                case 5:
+                    _b.sent();
+                    return [3 /*break*/, 7];
+                case 6:
+                    e_1 = _b.sent();
+                    console.log(e_1);
+                    return [3 /*break*/, 7];
+                case 7: return [4 /*yield*/, client
+                        .create(threadId, messagesIndexCollectionName, [messagesIndex])
+                        .catch(function (e) {
+                        if (e.message === "can't create already existing instance") {
+                            // Contact index already created - ignore error
+                        }
+                        else {
+                            throw Error(e.message);
+                        }
+                    })];
+                case 8:
                     _b.sent();
                     // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
                     // await client.delete(threadId, contactPubKey + "-0", m2.map((msg: any) => msg._id));
@@ -169,7 +168,7 @@ var createIndex = function (_a) {
                                 }
                             })
                         })];
-                case 5:
+                case 9:
                     // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
                     // await client.delete(threadId, contactPubKey + "-0", m2.map((msg: any) => msg._id));
                     // try{

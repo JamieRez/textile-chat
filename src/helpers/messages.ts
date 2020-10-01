@@ -32,7 +32,7 @@ export interface Message {
   body: string;
   time: number;
   owner: string | null;
-  id: string;
+  id: string | null;
 }
 
 const createIndex = async ({
@@ -102,13 +102,13 @@ const createIndex = async ({
     _id: "index",
     owner: identity.public.toString()
   };
-  // try {
-  //   await client.delete(threadId, messagesIndexCollectionName, [
-  //     messagesIndex._id,
-  //   ]);
-  // } catch (e) {
-  //   console.log(e);
-  // }
+  try {
+    await client.delete(threadId, messagesIndexCollectionName, [
+      messagesIndex._id,
+    ]);
+  } catch (e) {
+    console.log(e);
+  }
   await client
     .create(threadId, messagesIndexCollectionName, [messagesIndex])
     .catch((e) => {

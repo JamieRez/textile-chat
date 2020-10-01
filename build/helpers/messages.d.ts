@@ -14,7 +14,7 @@ export interface Message {
     body: string;
     time: number;
     owner: string | null;
-    id: string;
+    id: string | null;
 }
 declare const createIndex: ({ threadId, contactPubKey, client, privateKey, contactThreadId, contactDbInfo, identity }: {
     threadId: ThreadID;

@@ -39,6 +39,7 @@ const loginWithChallenge = (
 
       socket.onmessage = async (event) => {
         const data = JSON.parse(event.data);
+        console.log(data);
         switch (data.type) {
           case "error": {
             reject(data.value);

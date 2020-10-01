@@ -280,7 +280,7 @@ export default class TextileChat {
       time: Date.now(),
       body: await encrypt(pubKey, msg),
       owner: this.identity.public.toString(),
-      id: "",
+      id: ""
     };
     return this.client.create(this.threadId, contactPubKey + "-" + index.toString(), [
       message,
@@ -330,14 +330,15 @@ export default class TextileChat {
     const messageList: messages.Message[] = [];
 
     const loadMessages = async (
-      pubKey,
+      contactPubKey,
       client,
+      pubKey,
       threadId,
       decryptKey,
       name,
-      index
+      index,
     ) => {
-      const collectionName = pubKey + "-" + index.toString();
+      const collectionName = contactPubKey + "-" + index.toString();
       const q = new Where("owner").eq(pubKey);
       const msgs = (await client.find(threadId, collectionName, q));
       await Promise.all(
@@ -371,6 +372,7 @@ export default class TextileChat {
     loadMessages(
       _contactPubKey,
       this.client,
+      this.identity.public.toString(),
       this.threadId,
       ownerDecryptKey,
       this.domain,
@@ -379,6 +381,7 @@ export default class TextileChat {
     loadMessages(
       this.identity.public.toString(),
       _contactClient,
+      _contactPubKey,
       contactThreadId,
       readerDecryptKey,
       contactDomain,

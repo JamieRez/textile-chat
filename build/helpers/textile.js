@@ -73,6 +73,7 @@ var loginWithChallenge = function (domain, signer, id) {
                     switch (_b.label) {
                         case 0:
                             data = JSON.parse(event.data);
+                            console.log(data);
                             _a = data.type;
                             switch (_a) {
                                 case "error": return [3 /*break*/, 1];

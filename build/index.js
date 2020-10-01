@@ -521,17 +521,18 @@ var TextileChat = /** @class */ (function () {
                     case 10:
                         readerDecryptKey = new (_b.apply(hub_1.PrivateKey, [void 0, _c.sent()]))();
                         messageList = [];
-                        loadMessages = function (pubKey, client, threadId, decryptKey, name, index) { return __awaiter(_this, void 0, void 0, function () {
+                        loadMessages = function (contactPubKey, client, pubKey, threadId, decryptKey, name, index) { return __awaiter(_this, void 0, void 0, function () {
                             var collectionName, q, msgs;
                             var _this = this;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
                                     case 0:
-                                        collectionName = pubKey + "-" + index.toString();
+                                        collectionName = contactPubKey + "-" + index.toString();
                                         q = new hub_1.Where("owner").eq(pubKey);
                                         return [4 /*yield*/, client.find(threadId, collectionName, q)];
                                     case 1:
                                         msgs = (_a.sent());
+                                        console.log(msgs);
                                         return [4 /*yield*/, Promise.all(msgs.map(function (msg) { return __awaiter(_this, void 0, void 0, function () {
                                                 var decryptedBody;
                                                 return __generator(this, function (_a) {
@@ -558,10 +559,10 @@ var TextileChat = /** @class */ (function () {
                                             return __generator(this, function (_a) {
                                                 switch (_a.label) {
                                                     case 0:
-                                                        console.log(msg);
                                                         if (!msg.instance) {
                                                             return [2 /*return*/];
                                                         }
+                                                        console.log(msg.instance);
                                                         return [4 /*yield*/, index_1.decryptAndDecode(decryptKey, msg.instance.body)];
                                                     case 1:
                                                         decryptedBody = _a.sent();
@@ -581,8 +582,8 @@ var TextileChat = /** @class */ (function () {
                                 }
                             });
                         }); };
-                        loadMessages(_contactPubKey, this.client, this.threadId, ownerDecryptKey, this.domain, index);
-                        loadMessages(this.identity.public.toString(), _contactClient, contactThreadId, readerDecryptKey, contactDomain, index);
+                        loadMessages(_contactPubKey, this.client, this.identity.public.toString(), this.threadId, ownerDecryptKey, this.domain, index);
+                        loadMessages(this.identity.public.toString(), _contactClient, _contactPubKey, contactThreadId, readerDecryptKey, contactDomain, index);
                         return [2 /*return*/];
                 }
             });
