@@ -141,7 +141,7 @@ const findOrCreateCollection = ({
   writeValidator?: ((writer: string, event: any, instance: any) => boolean) | string;
 }) => {
   return client.find(threadId, collectionName, query || {}).catch((e) => {
-    return client.newCollection(threadId, { name: collectionName, schema });
+    return client.newCollection(threadId, { name: collectionName, schema, writeValidator });
   });
 };
 

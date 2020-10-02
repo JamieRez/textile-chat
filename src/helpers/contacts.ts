@@ -262,7 +262,7 @@ const handleAcceptedInvite = async ({
 
 const contactCreate = (client: Client, threadId: ThreadID, domain: string, identity) => {
   return client
-    .create(threadId, 'contacts', [{ domain: domain, _id: domain }])
+    .create(threadId, "contacts", [{ domain: domain, _id: domain, owner: identity.public.toString() }])
     .catch((e) => {
       if (e.message === "can't create already existing instance") {
         // Contact already created - ignore error

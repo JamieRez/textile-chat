@@ -95,6 +95,23 @@ export default class TextileChat {
       return this.client.newCollection(this.threadId, {
         name: 'contacts',
         schema: schemas.contacts,
+        writeValidator: ((writer, event, instance) => {
+          var patch = event.patch.json_patch;
+          var type = event.patch.type;
+          if(type === "create"){
+            if (writer === patch.owner) {
+              return true
+            } else { 
+              return false
+            }
+          } else {
+            if (writer === instance.owner){
+              return true;
+            } else {
+              return false;
+            }
+          }
+        })
       });
     });
     const mailboxId = await this.users.getMailboxID().catch(() => null);
@@ -116,7 +133,8 @@ export default class TextileChat {
   async getContacts(cb: (contact: { domain: string; id: string }) => void) {
     this.emitter.on('contact', cb);
     const contacts: { domain: string; id: string }[] = [];
-    this.client.find(this.threadId, 'contacts', {}).then((result: any) => {
+    const q = new Where("owner").eq(this.identity.public.toString());
+    this.client.find(this.threadId, 'contacts', q).then((result: any) => {
       result.map((contact) => {
         contacts.push({ domain: contact.domain, id: contact._id });
       });
@@ -277,7 +295,7 @@ export default class TextileChat {
     const message: messages.Message = {
       time: Date.now(),
       body: await encrypt(pubKey, msg),
-      owner: '',
+      owner: this.identity.public.toString(),
       id: '',
     };
     return this.client.create(
@@ -297,7 +315,8 @@ export default class TextileChat {
   ) {
     const messageList: messages.Message[] = [];
     const collectionName = pubKey + '-' + index.toString();
-    const msgs: any[] = await client.find(threadId, collectionName, {});
+    const q = new Where("owner").eq(pubKey);
+    const msgs: any[] = await client.find(threadId, collectionName, q);
     for (const msg of msgs) {
       const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
       messageList.push({
