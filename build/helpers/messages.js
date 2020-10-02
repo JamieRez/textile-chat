@@ -1,4 +1,23 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -45,6 +64,7 @@ var schemas_1 = __importDefault(require("./schemas"));
 var _1 = require(".");
 var textile_1 = require("./textile");
 var events_1 = __importDefault(require("events"));
+var errors_1 = __importStar(require("../errors"));
 var CONTACT_INDEX_LIMIT = 50;
 var createIndex = function (_a) {
     var threadId = _a.threadId, contactPubKey = _a.contactPubKey, client = _a.client, privateKey = _a.privateKey, contactThreadId = _a.contactThreadId, contactDbInfo = _a.contactDbInfo, identity = _a.identity;
@@ -53,12 +73,7 @@ var createIndex = function (_a) {
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
-                    messagesIndexCollectionName = contactPubKey + "-index";
-                    // try{
-                    //   await client.deleteCollection(threadId, messagesIndexCollectionName);
-                    // } catch {
-                    // }
-                    //DELETE THE MESSAGES INDEX
+                    messagesIndexCollectionName = contactPubKey + '-index';
                     return [4 /*yield*/, _1.findOrCreateCollection({
                             client: client,
                             threadId: threadId,
@@ -86,11 +101,6 @@ var createIndex = function (_a) {
                             })
                         })];
                 case 1:
-                    // try{
-                    //   await client.deleteCollection(threadId, messagesIndexCollectionName);
-                    // } catch {
-                    // }
-                    //DELETE THE MESSAGES INDEX
                     _b.sent();
                     contact = hub_1.PublicKey.fromString(contactPubKey);
                     encryptionWallet = hub_1.PrivateKey.fromRandom();
@@ -108,8 +118,7 @@ var createIndex = function (_a) {
                         encryptKey: encryptionWallet.public.toString(),
                         threadId: contactThreadId,
                         dbInfo: contactDbInfo,
-                        _id: "index",
-                        owner: identity.public.toString()
+                        _id: 'index',
                     };
                     _b.label = 4;
                 case 4:
@@ -131,21 +140,17 @@ var createIndex = function (_a) {
                             // Contact index already created - ignore error
                         }
                         else {
-                            throw Error(e.message);
+                            throw new errors_1.default(errors_1.ChatErrorCode.UnknownError, {
+                                errorMessage: e.message,
+                            });
                         }
                     })];
                 case 8:
                     _b.sent();
-                    // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
-                    // await client.delete(threadId, contactPubKey + "-0", m2.map((msg: any) => msg._id));
-                    // try{
-                    //   await client.deleteCollection(threadId, contactPubKey + "-0");
-                    // } catch {
-                    // }
                     return [4 /*yield*/, _1.findOrCreateCollection({
                             client: client,
                             threadId: threadId,
-                            collectionName: contactPubKey + "-0",
+                            collectionName: contactPubKey + '-0',
                             schema: schemas_1.default.messages,
                             writeValidator: (function (writer, event, instance) {
                                 var patch = event.patch.json_patch;
@@ -169,12 +174,6 @@ var createIndex = function (_a) {
                             })
                         })];
                 case 9:
-                    // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
-                    // await client.delete(threadId, contactPubKey + "-0", m2.map((msg: any) => msg._id));
-                    // try{
-                    //   await client.deleteCollection(threadId, contactPubKey + "-0");
-                    // } catch {
-                    // }
                     _b.sent();
                     return [2 /*return*/, messagesIndex];
             }
@@ -189,8 +188,8 @@ var getIndex = function (_a) {
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
-                    q = new hub_1.Where("_id").eq("index");
-                    return [4 /*yield*/, client.find(threadId, pubKey + "-index", q)];
+                    q = new hub_1.Where('_id').eq('index');
+                    return [4 /*yield*/, client.find(threadId, pubKey + '-index', q)];
                 case 1:
                     collection = _b.sent();
                     return [2 /*return*/, collection[0]];
@@ -204,7 +203,7 @@ var collectionCreate = function (_a) {
     return __awaiter(void 0, void 0, void 0, function () {
         var collectionName;
         return __generator(this, function (_b) {
-            collectionName = contactPubKey + "-" + indexNumber.toString();
+            collectionName = contactPubKey + '-' + indexNumber.toString();
             return [2 /*return*/, _1.findOrCreateCollection({
                     client: client,
                     threadId: threadId,
@@ -249,10 +248,10 @@ var sendMessage = function (_a) {
                     return [4 /*yield*/, textile_1.encrypt(pubKey, msg)];
                 case 1:
                     message = (_b.body = _c.sent(),
-                        _b.owner = "",
-                        _b.id = "",
+                        _b.owner = '',
+                        _b.id = '',
                         _b);
-                    return [2 /*return*/, client.create(threadId, contactPubKey + "-" + index.toString(), [
+                    return [2 /*return*/, client.create(threadId, contactPubKey + '-' + index.toString(), [
                             message,
                         ])];
             }
@@ -263,34 +262,34 @@ exports.sendMessage = sendMessage;
 var loadMessages = function (_a) {
     var pubKey = _a.pubKey, client = _a.client, threadId = _a.threadId, decryptKey = _a.decryptKey, name = _a.name, index = _a.index;
     return __awaiter(void 0, void 0, void 0, function () {
-        var collectionName, msgs, messageList;
+        var collectionName, msgs, messageList, _i, msgs_1, msg, decryptedBody;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
-                    collectionName = pubKey + "-" + index.toString();
+                    collectionName = pubKey + '-' + index.toString();
                     return [4 /*yield*/, client.find(threadId, collectionName, {})];
                 case 1:
-                    msgs = (_b.sent());
+                    msgs = _b.sent();
                     messageList = [];
-                    return [4 /*yield*/, Promise.all(msgs.map(function (msg) { return __awaiter(void 0, void 0, void 0, function () {
-                            var decryptedBody;
-                            return __generator(this, function (_a) {
-                                switch (_a.label) {
-                                    case 0: return [4 /*yield*/, _1.decryptAndDecode(decryptKey, msg.body)];
-                                    case 1:
-                                        decryptedBody = _a.sent();
-                                        messageList.push({
-                                            body: decryptedBody,
-                                            time: msg.time,
-                                            owner: name,
-                                            id: msg._id,
-                                        });
-                                        return [2 /*return*/];
-                                }
-                            });
-                        }); }))];
+                    _i = 0, msgs_1 = msgs;
+                    _b.label = 2;
                 case 2:
-                    _b.sent();
+                    if (!(_i < msgs_1.length)) return [3 /*break*/, 5];
+                    msg = msgs_1[_i];
+                    return [4 /*yield*/, _1.decryptAndDecode(decryptKey, msg.body)];
+                case 3:
+                    decryptedBody = _b.sent();
+                    messageList.push({
+                        body: decryptedBody,
+                        time: msg.time,
+                        owner: name,
+                        id: msg._id,
+                    });
+                    _b.label = 4;
+                case 4:
+                    _i++;
+                    return [3 /*break*/, 2];
+                case 5:
                     messageList.sort(function (a, b) { return a.time - b.time; });
                     return [2 /*return*/, messageList];
             }
@@ -303,9 +302,9 @@ var listenForMessages = function (_a) {
     return __awaiter(void 0, void 0, void 0, function () {
         var collectionName, emitter;
         return __generator(this, function (_b) {
-            collectionName = pubKey + "-" + index.toString();
+            collectionName = pubKey + '-' + index.toString();
             emitter = new events_1.default.EventEmitter();
-            emitter.on("newMessage", cb);
+            emitter.on('newMessage', cb);
             client.listen(threadId, [{ collectionName: collectionName }], function (msg) { return __awaiter(void 0, void 0, void 0, function () {
                 var decryptedBody;
                 return __generator(this, function (_a) {
@@ -317,7 +316,7 @@ var listenForMessages = function (_a) {
                             return [4 /*yield*/, _1.decryptAndDecode(decryptKey, msg.instance.body)];
                         case 1:
                             decryptedBody = _a.sent();
-                            emitter.emit("newMessage", [
+                            emitter.emit('newMessage', [
                                 {
                                     body: decryptedBody,
                                     time: msg.instance.time,

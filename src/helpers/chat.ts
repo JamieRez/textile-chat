@@ -1,15 +1,17 @@
-import { Client, ThreadID, UserMessage } from "@textile/hub";
-import * as contacts from "./contacts";
+import { Client, Users, ThreadID } from '@textile/hub';
+import * as contacts from './contacts';
 
-const getChatThreadId = async (client: Client): Promise<ThreadID> => {
-  const threads = await client.listThreads();
-  for (const thread of threads.listList) {
-    if (thread.name === "chat") {
-      return ThreadID.fromString(thread.id);
+const getChatThreadId = async (
+  users: Users,
+  client: Client,
+): Promise<ThreadID> => {
+  try {
+    const thread = await users.getThread('unstoppable-chat');
+    if (thread) {
+      return thread.id;
     }
-  }
-  const threadId = ThreadID.fromRandom();
-  return client.newDB(threadId, "chat");
+  } catch {}
+  return client.newDB(ThreadID.fromRandom(), 'unstoppable-chat');
 };
 
 export { getChatThreadId, contacts };

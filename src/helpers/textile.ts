@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { ethers } from 'ethers';
 import {
   PrivateKey,
   Users,
@@ -7,25 +7,24 @@ import {
   Client,
   Query,
   PublicKey,
-  CollectionConfig
-} from "@textile/hub";
-import { setRecord, getRecord } from ".";
-import { fromHexString } from ".";
+} from '@textile/hub';
+import { setRecord, getRecord } from '.';
+import { fromHexString } from '.';
+import ChatError, { ChatErrorCode } from '../errors';
 
 const getIdentityFromSignature = (signature: string) => {
-  const hex = Buffer.from(signature, "utf8");
-  const privateKey = ethers.utils.sha256(hex).replace("0x", "");
+  const hex = Buffer.from(signature, 'utf8');
+  const privateKey = ethers.utils.sha256(hex).replace('0x', '');
   return new PrivateKey(fromHexString(privateKey));
 };
 
 const loginWithChallenge = (
+  socketUrl: string,
   domain: string,
   signer: ethers.Signer,
-  id: PrivateKey
+  id: PrivateKey,
 ): Promise<UserAuth> => {
   return new Promise((resolve, reject) => {
-    const socketUrl = `ws://localhost:8080/ws/textile-auth`;
-
     const socket = new WebSocket(socketUrl);
 
     socket.onopen = () => {
@@ -33,32 +32,32 @@ const loginWithChallenge = (
         JSON.stringify({
           domain,
           pubkey: id.public.toString(),
-          type: "token",
-        })
+          type: 'token',
+        }),
       );
 
       socket.onmessage = async (event) => {
         const data = JSON.parse(event.data);
         console.log(data);
         switch (data.type) {
-          case "error": {
+          case 'error': {
             reject(data.value);
             break;
           }
-          case "challenge": {
+          case 'challenge': {
             const buf = Buffer.from(data.value);
             const signed = await id.sign(buf);
 
             socket.send(
               JSON.stringify({
-                type: "challenge",
+                type: 'challenge',
                 sig: Buffer.from(signed).toJSON(),
-              })
+              }),
             );
             break;
           }
-          case "token": {
-            resolve({ ...data.value, key: "bk44oyenlgauefar67jn56p7edm" });
+          case 'token': {
+            resolve({ ...data.value });
             break;
           }
         }
@@ -69,7 +68,7 @@ const loginWithChallenge = (
 
 const getIdentity = async (signer: ethers.Signer) => {
   const identificationSignature = await signer.signMessage(
-    "*****ONLY SIGN ON TRUSTED APPS*****: By signing this message you will create your Textile identification used for decentralized chat on ThreadsDB"
+    '*****ONLY SIGN ON TRUSTED APPS*****: By signing this message you will create your Textile identification used for decentralized chat on ThreadsDB',
   );
   return getIdentityFromSignature(identificationSignature);
 };
@@ -77,42 +76,52 @@ const getIdentity = async (signer: ethers.Signer) => {
 const configureDomain = async (
   textileId: PrivateKey,
   domain: string,
-  signer: ethers.Signer
+  signer: ethers.Signer,
 ): Promise<void> => {
   return setRecord(signer, domain, {
-    key: "social.textile.pubkey",
+    key: 'social.textile.pubkey',
     value: textileId.public.toString(),
   });
 };
 
 const getDomainPubKey = (
   provider: ethers.providers.Provider,
-  domain: string
-) => {
-  return getRecord(provider, domain, "social.textile.pubkey");
+  domain: string,
+): Promise<string> => {
+  return getRecord(provider, domain, 'social.textile.pubkey');
 };
 
 const getAndVerifyDomainPubKey = async (
   provider: ethers.providers.Provider,
   domain: string,
-  pubKey: string
+  pubKey: string,
 ) => {
   const domainPubKey: string = await getDomainPubKey(provider, domain);
   if (!domainPubKey) {
-    throw new Error("Domain does not have chat configured");
+    throw new ChatError(ChatErrorCode.UnconfiguredDomain, { domain });
   }
   if (domainPubKey !== pubKey) {
-    throw new Error("Message does not match domain pubkey");
+    throw new ChatError(ChatErrorCode.InvalidPubKey, {
+      expected: domainPubKey,
+      domain,
+      pubKey,
+    });
   }
   return domainPubKey;
 };
 
 const auth = async (
+  socketUrl: string,
   textileId: PrivateKey,
   domain: string,
-  signer: ethers.Signer
+  signer: ethers.Signer,
 ): Promise<UserAuth> => {
-  const userAuth = await loginWithChallenge(domain, signer, textileId);
+  const userAuth = await loginWithChallenge(
+    socketUrl,
+    domain,
+    signer,
+    textileId,
+  );
   return userAuth;
 };
 
@@ -132,17 +141,13 @@ const findOrCreateCollection = ({
   writeValidator?: ((writer: string, event: any, instance: any) => boolean) | string;
 }) => {
   return client.find(threadId, collectionName, query || {}).catch((e) => {
-    return client.newCollection(threadId, {
-      name: collectionName, 
-      schema,
-      writeValidator
-    });
+    return client.newCollection(threadId, { name: collectionName, schema });
   });
 };
 
 const decryptAndDecode = async (identity: PrivateKey, message: string) => {
   return new TextDecoder().decode(
-    await identity.decrypt(Uint8Array.from(message.split(",").map(Number)))
+    await identity.decrypt(Uint8Array.from(message.split(',').map(Number))),
   );
 };
 
@@ -152,7 +157,7 @@ const encrypt = async (pubKey: PublicKey, message: string) => {
 
 const decrypt = async (identity: PrivateKey, message: string) => {
   return await identity.decrypt(
-    Uint8Array.from(message.split(",").map(Number))
+    Uint8Array.from(message.split(',').map(Number)),
   );
 };
 

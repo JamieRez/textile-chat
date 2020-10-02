@@ -7,12 +7,12 @@ import {
   Private,
   Where,
   Identity,
-} from "@textile/hub";
-import schemas from "./schemas";
-import { findOrCreateCollection, decrypt, decryptAndDecode } from ".";
-import { contacts } from "./chat";
-import { encrypt } from "./textile";
-import events from "events";
+} from '@textile/hub';
+import schemas from './schemas';
+import { findOrCreateCollection, decryptAndDecode } from '.';
+import { encrypt } from './textile';
+import events from 'events';
+import ChatError, { ChatErrorCode } from '../errors';
 
 const CONTACT_INDEX_LIMIT = 50;
 
@@ -24,8 +24,7 @@ export interface MessagesIndex {
   threadId: string;
   dbInfo: string;
   encryptKey: string;
-  _id: "index";
-  owner: string;
+  _id: 'index';
 }
 
 export interface Message {
@@ -52,14 +51,7 @@ const createIndex = async ({
   contactDbInfo: string;
   identity: Identity;
 }): Promise<MessagesIndex> => {
-  const messagesIndexCollectionName = contactPubKey + "-index";
-  
-  // try{
-  //   await client.deleteCollection(threadId, messagesIndexCollectionName);
-  // } catch {
-    
-  // }
-  //DELETE THE MESSAGES INDEX
+  const messagesIndexCollectionName = contactPubKey + '-index';
   await findOrCreateCollection({
     client,
     threadId,
@@ -99,8 +91,7 @@ const createIndex = async ({
     encryptKey: encryptionWallet.public.toString(),
     threadId: contactThreadId,
     dbInfo: contactDbInfo,
-    _id: "index",
-    owner: identity.public.toString()
+    _id: 'index',
   };
   try {
     await client.delete(threadId, messagesIndexCollectionName, [
@@ -115,22 +106,15 @@ const createIndex = async ({
       if (e.message === "can't create already existing instance") {
         // Contact index already created - ignore error
       } else {
-        throw Error(e.message);
+        throw new ChatError(ChatErrorCode.UnknownError, {
+          errorMessage: e.message,
+        });
       }
     });
-
-  // const m2: any = await client.find(threadId, contactPubKey + "-0" , {});
-  // await client.delete(threadId, contactPubKey + "-0", m2.map((msg: any) => msg._id));
-  
-  // try{
-  //   await client.deleteCollection(threadId, contactPubKey + "-0");
-  // } catch {
-
-  // }
   await findOrCreateCollection({
     client,
     threadId,
-    collectionName: contactPubKey + "-0",
+    collectionName: contactPubKey + '-0',
     schema: schemas.messages,
     writeValidator: ((writer, event, instance) => {
       var patch = event.patch.json_patch;
@@ -162,8 +146,8 @@ const getIndex = async ({
   client: Client;
   pubKey: string;
 }): Promise<MessagesIndex> => {
-  const q = new Where("_id").eq("index");
-  const collection: any = await client.find(threadId, pubKey + "-index", q);
+  const q = new Where('_id').eq('index');
+  const collection: any = await client.find(threadId, pubKey + '-index', q);
   return collection[0];
 };
 
@@ -178,7 +162,7 @@ const collectionCreate = async ({
   client: Client;
   contactPubKey: string;
 }) => {
-  const collectionName = contactPubKey + "-" + indexNumber.toString();
+  const collectionName = contactPubKey + '-' + indexNumber.toString();
   return findOrCreateCollection({
     client,
     threadId,
@@ -224,10 +208,10 @@ const sendMessage = async ({
   const message: Message = {
     time: Date.now(),
     body: await encrypt(pubKey, msg),
-    owner: "",
-    id: "",
+    owner: '',
+    id: '',
   };
-  return client.create(threadId, contactPubKey + "-" + index.toString(), [
+  return client.create(threadId, contactPubKey + '-' + index.toString(), [
     message,
   ]);
 };
@@ -247,20 +231,18 @@ const loadMessages = async ({
   decryptKey: PrivateKey;
   name: string;
 }) => {
-  const collectionName = pubKey + "-" + index.toString();
-  const msgs: any[] = (await client.find(threadId, collectionName, {}));
+  const collectionName = pubKey + '-' + index.toString();
+  const msgs: any[] = await client.find(threadId, collectionName, {});
   const messageList: Message[] = [];
-  await Promise.all(
-    msgs.map(async (msg) => {
-      const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
-      messageList.push({
-        body: decryptedBody,
-        time: msg.time,
-        owner: name,
-        id: msg._id,
-      });
-    })
-  );
+  for (const msg of msgs) {
+    const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
+    messageList.push({
+      body: decryptedBody,
+      time: msg.time,
+      owner: name,
+      id: msg._id,
+    });
+  }
   messageList.sort((a, b) => a.time - b.time);
   return messageList;
 };
@@ -282,15 +264,15 @@ const listenForMessages = async ({
   name: string;
   cb: (msgs: Message[]) => void;
 }) => {
-  const collectionName = pubKey + "-" + index.toString();
+  const collectionName = pubKey + '-' + index.toString();
   const emitter = new events.EventEmitter();
-  emitter.on("newMessage", cb);
+  emitter.on('newMessage', cb);
   client.listen(threadId, [{ collectionName }], async (msg: any) => {
     if (!msg.instance) {
       return;
     }
     const decryptedBody = await decryptAndDecode(decryptKey, msg.instance.body);
-    emitter.emit("newMessage", [
+    emitter.emit('newMessage', [
       {
         body: decryptedBody,
         time: msg.instance.time,

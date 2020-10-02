@@ -6,17 +6,18 @@ import {
   PublicKey,
   Private,
   Identity
-} from "@textile/hub";
+} from '@textile/hub';
 import {
   getAndVerifyDomainPubKey,
   getDomainPubKey,
   decryptAndDecode,
   encrypt,
-} from ".";
-import { Signer } from "ethers";
-import { DBInfo } from "@textile/threads-client";
-import schemas from "./schemas";
-import * as messages from "./messages";
+} from '.';
+import { Signer } from 'ethers';
+import { DBInfo } from '@textile/threads-client';
+import schemas from './schemas';
+import * as messages from './messages';
+import ChatError, { ChatErrorCode } from '../errors';
 
 const CONTACT_INDEX_LIMIT = 50;
 export interface InviteMessage {
@@ -26,7 +27,7 @@ export interface InviteMessage {
 }
 
 export interface InviteMessageBody {
-  type: "ContactInviteAccepted" | "ContactInvite";
+  type: 'ContactInviteAccepted' | 'ContactInvite';
   sig: string;
   domain: string;
   dbInfo: string;
@@ -36,25 +37,25 @@ export interface InviteMessageBody {
 const deleteContacts = (
   client: Client,
   threadId: ThreadID,
-  contactIds: string[]
+  contactIds: string[],
 ) => {
-  return client.delete(threadId, "contacts", contactIds);
+  return client.delete(threadId, 'contacts', contactIds);
 };
 
 const deleteAllContacts = async (client: Client, threadId: ThreadID) => {
-  const contacts = await client.find(threadId, "contacts", {});
-  deleteContacts(
+  const contacts: any[] = await client.find(threadId, 'contacts', {});
+  return deleteContacts(
     client,
     threadId,
-    contacts.map((contact: any) => contact._id)
+    contacts.map((contact) => contact._id),
   );
 };
 
 const getContacts = async (
   client: Client,
-  threadId: ThreadID
+  threadId: ThreadID,
 ): Promise<{ id: string; domain: string }[]> => {
-  return client.find(threadId, "contacts", {}).then((result) => {
+  return client.find(threadId, 'contacts', {}).then((result) => {
     return result.map((contact: any) => {
       return { domain: contact.domain, id: contact._id };
     });
@@ -80,21 +81,23 @@ const sendInvite = async ({
 }) => {
   const domainPubKey = await getDomainPubKey(signer.provider!, contactDomain);
   if (!domainPubKey) {
-    throw new Error("Domain does not have pubkey set");
+    throw new ChatError(ChatErrorCode.NoPubKeySet, {
+      domain,
+    });
   }
   const recipient = PublicKey.fromString(domainPubKey);
   const sig = await encrypt(identity.public, domainPubKey);
   const contactInviteMessage: InviteMessageBody = {
-    type: "ContactInvite",
+    type: 'ContactInvite',
     sig,
     domain: domain,
     dbInfo: JSON.stringify(dbInfo),
     threadId: threadId.toString(),
   };
-  await users.sendMessage(
+  return users.sendMessage(
     identity,
     recipient,
-    new TextEncoder().encode(JSON.stringify(contactInviteMessage))
+    new TextEncoder().encode(JSON.stringify(contactInviteMessage)),
   );
 };
 
@@ -115,7 +118,7 @@ const sendInviteAccepted = ({
   threadId: ThreadID;
 }) => {
   const body: InviteMessageBody = {
-    type: "ContactInviteAccepted",
+    type: 'ContactInviteAccepted',
     sig: contactInviteMessage.body.sig,
     domain: domain,
     dbInfo: JSON.stringify(dbInfo),
@@ -125,7 +128,7 @@ const sendInviteAccepted = ({
   return users.sendMessage(
     privateKey,
     recipient,
-    new TextEncoder().encode(JSON.stringify(body))
+    new TextEncoder().encode(JSON.stringify(body)),
   );
 };
 
@@ -136,7 +139,7 @@ const configure = async ({
   users,
   client,
 }: {
-  identity: PrivateKey;
+  identity: Identity;
   threadId: ThreadID;
   signer: Signer;
   users: Users;
@@ -144,100 +147,81 @@ const configure = async ({
 }) => {
 
   return client
-    .find(threadId, "contacts", {})
+    .find(threadId, 'contacts', {})
     .catch(() => {
       return client.newCollection(threadId, {
-        name: "contacts",
+        name: 'contacts',
         schema: schemas.contacts,
-        writeValidator: ((writer, event, instance) => {
-          var patch = event.patch.json_patch;
-          var type = event.patch.type;
-          if(type === "create"){
-            if (writer === patch.owner) {
-              return true
-            } else { 
-              return false
-            }
-          } else {
-            if (writer === instance.owner){
-              return true;
-            } else {
-              return false;
-            }
-          }
-        })
-      })
+      });
+    })
+    .then(() => {
+      return handleAcceptedInvites({
+        identity,
+        threadId,
+        signer,
+        users,
+        client,
+      });
     });
 };
 
 const getInvites = async (
   users: Users,
-  identity: PrivateKey
+  identity: PrivateKey,
 ): Promise<Array<InviteMessage>> => {
   const messages = await users.listInboxMessages();
-  const contactInvites: InviteMessage[] = (
-    await Promise.all(
-      messages.map(async (message) => {
-        const body: InviteMessageBody = JSON.parse(
-          new TextDecoder().decode(await identity.decrypt(message.body))
-        );
-        if (body.type === "ContactInvite") {
-          return { body, from: message.from, id: message.id };
-        }
-        return null;
-      })
-    )
-  ).filter((x): x is InviteMessage => x !== null);
+  const contactInvites: InviteMessage[] = [];
+  for (const message of messages) {
+    const body: InviteMessageBody = JSON.parse(
+      new TextDecoder().decode(await identity.decrypt(message.body)),
+    );
+    if (body.type === 'ContactInvite') {
+      contactInvites.push({ body, from: message.from, id: message.id });
+    }
+  }
   return contactInvites;
 };
 
 const handleAcceptedInvites = async ({
-  privateKey,
   identity,
   threadId,
   signer,
   users,
   client,
 }: {
-  privateKey: PrivateKey;
   identity: Identity;
   threadId: ThreadID;
   signer: Signer;
   users: Users;
   client: Client;
 }): Promise<void> => {
+  const privateKey = PrivateKey.fromString(identity.toString());
   const messages = await users.listInboxMessages();
-  await Promise.all(
-    messages.map(async (message) => {
-      const body: InviteMessageBody = JSON.parse(
-        new TextDecoder().decode(await privateKey.decrypt(message.body))
-      );
-      if (body.type === "ContactInviteAccepted") {
-        const contactAcceptedMessage: InviteMessage = {
-          body,
-          id: message.id,
-          from: message.from,
-        };
-        return handleAcceptedInvite({
-          contactAcceptedMessage,
-          signer,
-          threadId,
-          client,
-          identity,
-          privateKey,
-          users,
-        });
-      }
-      return null;
-    })
-  );
+  for (const message of messages) {
+    const body: InviteMessageBody = JSON.parse(
+      new TextDecoder().decode(await privateKey.decrypt(message.body)),
+    );
+    if (body.type === 'ContactInviteAccepted') {
+      const contactAcceptedMessage: InviteMessage = {
+        body,
+        id: message.id,
+        from: message.from,
+      };
+      await handleAcceptedInvite({
+        contactAcceptedMessage,
+        signer,
+        threadId,
+        client,
+        identity,
+        users,
+      });
+    }
+  }
 };
-
 
 const handleAcceptedInvite = async ({
   signer,
   contactAcceptedMessage,
-  privateKey,
   client,
   threadId,
   users,
@@ -246,7 +230,6 @@ const handleAcceptedInvite = async ({
   threadId: ThreadID;
   client: Client;
   signer: Signer;
-  privateKey: PrivateKey;
   contactAcceptedMessage: InviteMessage;
   users: Users;
   identity: Identity;
@@ -254,11 +237,15 @@ const handleAcceptedInvite = async ({
   const contactPubKey = await getAndVerifyDomainPubKey(
     signer.provider!,
     contactAcceptedMessage.body.domain,
-    contactAcceptedMessage.from
+    contactAcceptedMessage.from,
   );
+  const privateKey = PrivateKey.fromString(identity.toString());
   const sig = await decryptAndDecode(privateKey, contactAcceptedMessage.body.sig);
   if (sig !== contactPubKey) {
-    throw new Error("Signature does not match domainPubKey");
+    throw new ChatError(ChatErrorCode.InvalidSigature, {
+      signature: sig,
+      pubKey: identity.public.toString(),
+    });
   }
   await contactCreate(client, threadId, contactAcceptedMessage.body.domain, identity);
   await messages.createIndex({
@@ -275,12 +262,14 @@ const handleAcceptedInvite = async ({
 
 const contactCreate = (client: Client, threadId: ThreadID, domain: string, identity) => {
   return client
-    .create(threadId, "contacts", [{ domain: domain, _id: domain, owner: identity.public.toString() }])
+    .create(threadId, 'contacts', [{ domain: domain, _id: domain }])
     .catch((e) => {
       if (e.message === "can't create already existing instance") {
         // Contact already created - ignore error
       } else {
-        throw Error(e.message);
+        throw new ChatError(ChatErrorCode.UnknownError, {
+          errorMessage: e.message,
+        });
       }
     });
 };
@@ -309,7 +298,7 @@ const acceptInvite = async ({
   const contactPubKey: string = await getAndVerifyDomainPubKey(
     signer.provider!,
     contactInviteMessage.body.domain,
-    contactInviteMessage.from
+    contactInviteMessage.from,
   );
   await contactCreate(client, threadId, contactInviteMessage.body.domain, identity);
   await sendInviteAccepted({
@@ -340,7 +329,7 @@ const declineInvite = async ({
   contactInviteMessage: InviteMessage;
   users: Users;
 }) => {
-  await users.deleteInboxMessage(contactInviteMessage.id);
+  return users.deleteInboxMessage(contactInviteMessage.id);
 };
 
 export {
@@ -354,5 +343,5 @@ export {
   deleteContacts,
   handleAcceptedInvite,
   handleAcceptedInvites,
-  contactCreate
+  contactCreate,
 };

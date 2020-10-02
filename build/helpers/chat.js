@@ -59,21 +59,23 @@ exports.contacts = exports.getChatThreadId = void 0;
 var hub_1 = require("@textile/hub");
 var contacts = __importStar(require("./contacts"));
 exports.contacts = contacts;
-var getChatThreadId = function (client) { return __awaiter(void 0, void 0, void 0, function () {
-    var threads, _i, _a, thread, threadId;
+var getChatThreadId = function (users, client) { return __awaiter(void 0, void 0, void 0, function () {
+    var thread, _a;
     return __generator(this, function (_b) {
         switch (_b.label) {
-            case 0: return [4 /*yield*/, client.listThreads()];
+            case 0:
+                _b.trys.push([0, 2, , 3]);
+                return [4 /*yield*/, users.getThread('unstoppable-chat')];
             case 1:
-                threads = _b.sent();
-                for (_i = 0, _a = threads.listList; _i < _a.length; _i++) {
-                    thread = _a[_i];
-                    if (thread.name === "chat") {
-                        return [2 /*return*/, hub_1.ThreadID.fromString(thread.id)];
-                    }
+                thread = _b.sent();
+                if (thread) {
+                    return [2 /*return*/, thread.id];
                 }
-                threadId = hub_1.ThreadID.fromRandom();
-                return [2 /*return*/, client.newDB(threadId, "chat")];
+                return [3 /*break*/, 3];
+            case 2:
+                _a = _b.sent();
+                return [3 /*break*/, 3];
+            case 3: return [2 /*return*/, client.newDB(hub_1.ThreadID.fromRandom(), 'unstoppable-chat')];
         }
     });
 }); };

@@ -10,6 +10,25 @@ var __assign = (this && this.__assign) || function () {
     };
     return __assign.apply(this, arguments);
 };
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -52,20 +71,20 @@ var ethers_1 = require("ethers");
 var hub_1 = require("@textile/hub");
 var _1 = require(".");
 var _2 = require(".");
+var errors_1 = __importStar(require("../errors"));
 var getIdentityFromSignature = function (signature) {
-    var hex = Buffer.from(signature, "utf8");
-    var privateKey = ethers_1.ethers.utils.sha256(hex).replace("0x", "");
+    var hex = Buffer.from(signature, 'utf8');
+    var privateKey = ethers_1.ethers.utils.sha256(hex).replace('0x', '');
     return new hub_1.PrivateKey(_2.fromHexString(privateKey));
 };
-var loginWithChallenge = function (domain, signer, id) {
+var loginWithChallenge = function (socketUrl, domain, signer, id) {
     return new Promise(function (resolve, reject) {
-        var socketUrl = "ws://localhost:8080/ws/textile-auth";
         var socket = new WebSocket(socketUrl);
         socket.onopen = function () {
             socket.send(JSON.stringify({
                 domain: domain,
                 pubkey: id.public.toString(),
-                type: "token",
+                type: 'token',
             }));
             socket.onmessage = function (event) { return __awaiter(void 0, void 0, void 0, function () {
                 var data, _a, buf, signed;
@@ -76,9 +95,9 @@ var loginWithChallenge = function (domain, signer, id) {
                             console.log(data);
                             _a = data.type;
                             switch (_a) {
-                                case "error": return [3 /*break*/, 1];
-                                case "challenge": return [3 /*break*/, 2];
-                                case "token": return [3 /*break*/, 4];
+                                case 'error': return [3 /*break*/, 1];
+                                case 'challenge': return [3 /*break*/, 2];
+                                case 'token': return [3 /*break*/, 4];
                             }
                             return [3 /*break*/, 5];
                         case 1:
@@ -93,13 +112,13 @@ var loginWithChallenge = function (domain, signer, id) {
                         case 3:
                             signed = _b.sent();
                             socket.send(JSON.stringify({
-                                type: "challenge",
+                                type: 'challenge',
                                 sig: Buffer.from(signed).toJSON(),
                             }));
                             return [3 /*break*/, 5];
                         case 4:
                             {
-                                resolve(__assign(__assign({}, data.value), { key: "bk44oyenlgauefar67jn56p7edm" }));
+                                resolve(__assign({}, data.value));
                                 return [3 /*break*/, 5];
                             }
                             _b.label = 5;
@@ -114,7 +133,7 @@ var getIdentity = function (signer) { return __awaiter(void 0, void 0, void 0, f
     var identificationSignature;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, signer.signMessage("*****ONLY SIGN ON TRUSTED APPS*****: By signing this message you will create your Textile identification used for decentralized chat on ThreadsDB")];
+            case 0: return [4 /*yield*/, signer.signMessage('*****ONLY SIGN ON TRUSTED APPS*****: By signing this message you will create your Textile identification used for decentralized chat on ThreadsDB')];
             case 1:
                 identificationSignature = _a.sent();
                 return [2 /*return*/, getIdentityFromSignature(identificationSignature)];
@@ -125,14 +144,14 @@ exports.getIdentity = getIdentity;
 var configureDomain = function (textileId, domain, signer) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         return [2 /*return*/, _1.setRecord(signer, domain, {
-                key: "social.textile.pubkey",
+                key: 'social.textile.pubkey',
                 value: textileId.public.toString(),
             })];
     });
 }); };
 exports.configureDomain = configureDomain;
 var getDomainPubKey = function (provider, domain) {
-    return _1.getRecord(provider, domain, "social.textile.pubkey");
+    return _1.getRecord(provider, domain, 'social.textile.pubkey');
 };
 exports.getDomainPubKey = getDomainPubKey;
 var getAndVerifyDomainPubKey = function (provider, domain, pubKey) { return __awaiter(void 0, void 0, void 0, function () {
@@ -143,21 +162,25 @@ var getAndVerifyDomainPubKey = function (provider, domain, pubKey) { return __aw
             case 1:
                 domainPubKey = _a.sent();
                 if (!domainPubKey) {
-                    throw new Error("Domain does not have chat configured");
+                    throw new errors_1.default(errors_1.ChatErrorCode.UnconfiguredDomain, { domain: domain });
                 }
                 if (domainPubKey !== pubKey) {
-                    throw new Error("Message does not match domain pubkey");
+                    throw new errors_1.default(errors_1.ChatErrorCode.InvalidPubKey, {
+                        expected: domainPubKey,
+                        domain: domain,
+                        pubKey: pubKey,
+                    });
                 }
                 return [2 /*return*/, domainPubKey];
         }
     });
 }); };
 exports.getAndVerifyDomainPubKey = getAndVerifyDomainPubKey;
-var auth = function (textileId, domain, signer) { return __awaiter(void 0, void 0, void 0, function () {
+var auth = function (socketUrl, textileId, domain, signer) { return __awaiter(void 0, void 0, void 0, function () {
     var userAuth;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, loginWithChallenge(domain, signer, textileId)];
+            case 0: return [4 /*yield*/, loginWithChallenge(socketUrl, domain, signer, textileId)];
             case 1:
                 userAuth = _a.sent();
                 return [2 /*return*/, userAuth];
@@ -168,11 +191,7 @@ exports.auth = auth;
 var findOrCreateCollection = function (_a) {
     var threadId = _a.threadId, client = _a.client, collectionName = _a.collectionName, schema = _a.schema, query = _a.query, writeValidator = _a.writeValidator;
     return client.find(threadId, collectionName, query || {}).catch(function (e) {
-        return client.newCollection(threadId, {
-            name: collectionName,
-            schema: schema,
-            writeValidator: writeValidator
-        });
+        return client.newCollection(threadId, { name: collectionName, schema: schema });
     });
 };
 exports.findOrCreateCollection = findOrCreateCollection;
@@ -182,7 +201,7 @@ var decryptAndDecode = function (identity, message) { return __awaiter(void 0, v
         switch (_c.label) {
             case 0:
                 _b = (_a = new TextDecoder()).decode;
-                return [4 /*yield*/, identity.decrypt(Uint8Array.from(message.split(",").map(Number)))];
+                return [4 /*yield*/, identity.decrypt(Uint8Array.from(message.split(',').map(Number)))];
             case 1: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
         }
     });
@@ -200,7 +219,7 @@ exports.encrypt = encrypt;
 var decrypt = function (identity, message) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, identity.decrypt(Uint8Array.from(message.split(",").map(Number)))];
+            case 0: return [4 /*yield*/, identity.decrypt(Uint8Array.from(message.split(',').map(Number)))];
             case 1: return [2 /*return*/, _a.sent()];
         }
     });

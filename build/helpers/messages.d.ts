@@ -1,4 +1,4 @@
-import { Client, PrivateKey, ThreadID, Identity } from "@textile/hub";
+import { Client, PrivateKey, ThreadID, Identity } from '@textile/hub';
 export interface MessagesIndex {
     currentLength: number;
     limit: number;
@@ -7,8 +7,7 @@ export interface MessagesIndex {
     threadId: string;
     dbInfo: string;
     encryptKey: string;
-    _id: "index";
-    owner: string;
+    _id: 'index';
 }
 export interface Message {
     body: string;
