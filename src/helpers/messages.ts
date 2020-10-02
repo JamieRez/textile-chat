@@ -92,6 +92,7 @@ const createIndex = async ({
     encryptKey: encryptionWallet.public.toString(),
     threadId: contactThreadId,
     dbInfo: contactDbInfo,
+    owner: this.identity.public.toString(),
     _id: 'index',
   };
   try {

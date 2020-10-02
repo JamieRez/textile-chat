@@ -280,7 +280,7 @@ var handleAcceptedInvite = function (_a) {
 exports.handleAcceptedInvite = handleAcceptedInvite;
 var contactCreate = function (client, threadId, domain, identity) {
     return client
-        .create(threadId, 'contacts', [{ domain: domain, _id: domain }])
+        .create(threadId, "contacts", [{ domain: domain, _id: domain, owner: identity.public.toString() }])
         .catch(function (e) {
         if (e.message === "can't create already existing instance") {
             // Contact already created - ignore error

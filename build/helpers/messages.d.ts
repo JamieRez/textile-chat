@@ -7,6 +7,7 @@ export interface MessagesIndex {
     threadId: string;
     dbInfo: string;
     encryptKey: string;
+    owner: string;
     _id: 'index';
 }
 export interface Message {

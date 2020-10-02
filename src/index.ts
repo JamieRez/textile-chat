@@ -35,7 +35,7 @@ export type EventCallbackParams = {
 };
 export default class TextileChat {
   domain: string;
-  contactsList: [];
+  contactsList: any[];
   contactInvitesList: any[];
   activeContact: string;
   identity: Identity;
@@ -132,11 +132,11 @@ export default class TextileChat {
 
   async getContacts(cb: (contact: { domain: string; id: string }) => void) {
     this.emitter.on('contact', cb);
-    const contacts: { domain: string; id: string }[] = [];
+    this.contactsList = [];
     const q = new Where("owner").eq(this.identity.public.toString());
     this.client.find(this.threadId, 'contacts', q).then((result: any) => {
       result.map((contact) => {
-        contacts.push({ domain: contact.domain, id: contact._id });
+        this.contactsList.push({ domain: contact.domain, id: contact._id });
       });
     });
     this.client.listen(
@@ -146,13 +146,17 @@ export default class TextileChat {
         if (!contact?.instance) {
           return;
         }
+        this.contactsList.push({
+          domain: contact.instance.domain,
+          id: contact.instance._id
+        });
         this.emitter.emit('contact', {
           domain: contact.instance.domain,
           id: contact.instance._id,
         });
       },
     );
-    return contacts;
+    return this.contactsList;
   }
 
   async sendContactInvite(contactDomain: string) {
@@ -188,14 +192,14 @@ export default class TextileChat {
   async getInvites(cb: (contactInvites: contacts.InviteMessage[]) => void) {
     const messages = await this.users.listInboxMessages();
     const privateKey = PrivateKey.fromString(this.identity.toString());
-    const contactInvites: contacts.InviteMessage[] = [];
+    this.contactInvitesList  = [];
     this.emitter.on('contactInvite', cb);
     for (const message of messages) {
       const body: contacts.InviteMessageBody = JSON.parse(
         new TextDecoder().decode(await privateKey.decrypt(message.body)),
       );
       if (body.type === 'ContactInvite') {
-        contactInvites.push({ body, from: message.from, id: message.id });
+        this.contactInvitesList.push({ body, from: message.from, id: message.id });
       }
     }
     contacts.handleAcceptedInvites({
@@ -239,7 +243,7 @@ export default class TextileChat {
         }
       }
     });
-    return contactInvites;
+    return this.contactInvitesList;
   }
 
   async acceptContactInvite(contactInviteMessage: contacts.InviteMessage) {
@@ -306,15 +310,16 @@ export default class TextileChat {
   }
 
   async loadMessages(
-    pubKey: string,
-    client: Client,
-    threadId: ThreadID,
-    decryptKey: PrivateKey,
-    name: string,
-    index: number,
+    contactPubKey,
+    client,
+    pubKey,
+    threadId,
+    decryptKey,
+    name,
+    index,
   ) {
     const messageList: messages.Message[] = [];
-    const collectionName = pubKey + '-' + index.toString();
+    const collectionName = contactPubKey + '-' + index.toString();
     const q = new Where("owner").eq(pubKey);
     const msgs: any[] = await client.find(threadId, collectionName, q);
     for (const msg of msgs) {
@@ -331,17 +336,18 @@ export default class TextileChat {
   }
 
   async listenMessages(
-    pubKey: string,
+    contactPubKey: string,
     client: Client,
+    pubKey: string,
     threadId: ThreadID,
     decryptKey: PrivateKey,
     name: string,
     index: number,
     cb: (message: messages.Message) => void,
   ): Promise<{ close: () => void }> {
-    const collectionName = pubKey + '-' + index.toString();
+    const collectionName = contactPubKey + '-' + index.toString();
     return client.listen(threadId, [{ collectionName }], async (msg: any) => {
-      if (!msg.instance) {
+      if (!msg.instance || (msg.instance.owner !== pubKey)) {
         return;
       }
       const decryptedBody = await decryptAndDecode(
@@ -410,6 +416,7 @@ export default class TextileChat {
     const owner = [
       _contactPubKey,
       this.client,
+      this.identity.public.toString(),
       this.threadId,
       ownerDecryptKey,
       this.domain,
@@ -418,6 +425,7 @@ export default class TextileChat {
     const contact = [
       this.identity.public.toString(),
       _contactClient,
+      _contactPubKey,
       contactThreadId,
       readerDecryptKey,
       contactDomain,

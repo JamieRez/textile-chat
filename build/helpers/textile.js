@@ -191,7 +191,7 @@ exports.auth = auth;
 var findOrCreateCollection = function (_a) {
     var threadId = _a.threadId, client = _a.client, collectionName = _a.collectionName, schema = _a.schema, query = _a.query, writeValidator = _a.writeValidator;
     return client.find(threadId, collectionName, query || {}).catch(function (e) {
-        return client.newCollection(threadId, { name: collectionName, schema: schema });
+        return client.newCollection(threadId, { name: collectionName, schema: schema, writeValidator: writeValidator });
     });
 };
 exports.findOrCreateCollection = findOrCreateCollection;
