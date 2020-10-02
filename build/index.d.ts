@@ -21,4 +21,5 @@ export default class TextileChat {
     declineInvite(contactInviteMessage: any): Promise<void>;
     sendMessage(contactDomain: any, msg: any, index: any): Promise<string[] | undefined>;
     loadContactMessages(contactDomain: any, index: any, cb: any): Promise<void>;
+    archiveContactMessages(contactDomain: any, index: any, cb: any): Promise<void>;
 }

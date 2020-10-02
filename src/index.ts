@@ -8,7 +8,8 @@ import {
   PublicKey,
   Identity,
   DBInfo,
-  Where
+  Where,
+  Buckets
 } from "@textile/hub";
 import ethers, { Signer } from "ethers";
 import { EventEmitter } from 'events';
@@ -302,11 +303,9 @@ export default class TextileChat {
     });
     const _contactClient = await Client.withUserAuth(this.userAuth);
     try {
-      // TODO: Ask textile about dbInfo
       await _contactClient.joinFromInfo(JSON.parse(_messagesIndex.dbInfo));
     } catch (e) {
       if (e.message === "db already exists") {
-        // ignore, probably using same textile id
       } else {
         throw new Error(e.message);
       }
@@ -389,5 +388,65 @@ export default class TextileChat {
     );
 
   };
+
+  async archiveContactMessages(contactDomain, index, cb){
+    const contactPubKey = await getDomainPubKey(
+      this.signer.provider!,
+      contactDomain
+    );
+    const messagesIndex = await messages.getIndex({
+      client: this.client,
+      threadId: this.threadId,
+      pubKey: contactPubKey,
+    });
+    const contactClient = await Client.withUserAuth(this.userAuth);
+    try {
+      await contactClient.joinFromInfo(JSON.parse(messagesIndex.dbInfo));
+    } catch (e) {
+      if (e.message === "db already exists") {
+      } else {
+        throw new Error(e.message);
+      }
+    }
+    const contactThreadId = ThreadID.fromString(messagesIndex.threadId);
+    const contactMessageIndex: messages.MessagesIndex = await messages.getIndex(
+      {
+        client: contactClient,
+        threadId: contactThreadId,
+        pubKey: this.identity.public.toString(),
+      }
+    );
+
+    const archive: any = {
+      members : {},
+      msgs: []
+    };
+    archive.members[this.domain] = {
+      pubKey : this.identity.public.toString(),
+      ownerDecryptKey: messagesIndex.ownerDecryptKey,
+      readerDecryptKey: messagesIndex.readerDecryptKey,
+      threadId: this.threadId
+    }
+    archive.members[this.domain] = {
+      pubKey : contactPubKey,
+      ownerDecryptKey: contactMessageIndex.ownerDecryptKey,
+      readerDecryptKey: contactMessageIndex.readerDecryptKey,
+      threadId: contactThreadId
+    }
+
+    const ownQ = new Where("owner").eq(this.identity.public.toString());
+    const ownMsgs = (await this.client.find(this.threadId, contactPubKey + "-" + index.toString(), ownQ));
+    const contactQ = new Where("owner").eq(contactPubKey);
+    const contactMsgs = (await contactClient.find(contactThreadId, this.identity.public.toString() + "-" + index.toString(), {}));
+    archive.msgs = [...ownMsgs, ...contactMsgs];
+    archive.msgs.sort((a: any, b: any) => a.time - b.time);
+
+    const buckets = Buckets.withUserAuth(this.userAuth)
+    const { root, threadID } = await buckets.getOrCreate("archive-test-0");
+    const file = { path: '/index.html', content: JSON.stringify(archive) }
+    const result = await buckets.pushPath(root!.key, 'index.html', file)
+    console.log(result);
+
+  }
 
 }

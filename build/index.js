@@ -54,6 +54,13 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __spreadArrays = (this && this.__spreadArrays) || function () {
+    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
+    for (var r = Array(s), k = 0, i = 0; i < il; i++)
+        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
+            r[k] = a[j];
+    return r;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -487,16 +494,13 @@ var TextileChat = /** @class */ (function () {
                         _c.label = 4;
                     case 4:
                         _c.trys.push([4, 6, , 7]);
-                        // TODO: Ask textile about dbInfo
                         return [4 /*yield*/, _contactClient.joinFromInfo(JSON.parse(_messagesIndex.dbInfo))];
                     case 5:
-                        // TODO: Ask textile about dbInfo
                         _c.sent();
                         return [3 /*break*/, 7];
                     case 6:
                         e_1 = _c.sent();
                         if (e_1.message === "db already exists") {
-                            // ignore, probably using same textile id
                         }
                         else {
                             throw new Error(e_1.message);
@@ -532,7 +536,6 @@ var TextileChat = /** @class */ (function () {
                                         return [4 /*yield*/, client.find(threadId, collectionName, q)];
                                     case 1:
                                         msgs = (_a.sent());
-                                        console.log(msgs);
                                         return [4 /*yield*/, Promise.all(msgs.map(function (msg) { return __awaiter(_this, void 0, void 0, function () {
                                                 var decryptedBody;
                                                 return __generator(this, function (_a) {
@@ -562,7 +565,6 @@ var TextileChat = /** @class */ (function () {
                                                         if (!msg.instance) {
                                                             return [2 /*return*/];
                                                         }
-                                                        console.log(msg.instance);
                                                         return [4 /*yield*/, index_1.decryptAndDecode(decryptKey, msg.instance.body)];
                                                     case 1:
                                                         decryptedBody = _a.sent();
@@ -590,6 +592,88 @@ var TextileChat = /** @class */ (function () {
         });
     };
     ;
+    TextileChat.prototype.archiveContactMessages = function (contactDomain, index, cb) {
+        return __awaiter(this, void 0, void 0, function () {
+            var contactPubKey, messagesIndex, contactClient, e_2, contactThreadId, contactMessageIndex, archive, ownQ, ownMsgs, contactQ, contactMsgs, buckets, _a, root, threadID, file, result;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0: return [4 /*yield*/, index_1.getDomainPubKey(this.signer.provider, contactDomain)];
+                    case 1:
+                        contactPubKey = _b.sent();
+                        return [4 /*yield*/, messages.getIndex({
+                                client: this.client,
+                                threadId: this.threadId,
+                                pubKey: contactPubKey,
+                            })];
+                    case 2:
+                        messagesIndex = _b.sent();
+                        return [4 /*yield*/, hub_1.Client.withUserAuth(this.userAuth)];
+                    case 3:
+                        contactClient = _b.sent();
+                        _b.label = 4;
+                    case 4:
+                        _b.trys.push([4, 6, , 7]);
+                        return [4 /*yield*/, contactClient.joinFromInfo(JSON.parse(messagesIndex.dbInfo))];
+                    case 5:
+                        _b.sent();
+                        return [3 /*break*/, 7];
+                    case 6:
+                        e_2 = _b.sent();
+                        if (e_2.message === "db already exists") {
+                        }
+                        else {
+                            throw new Error(e_2.message);
+                        }
+                        return [3 /*break*/, 7];
+                    case 7:
+                        contactThreadId = hub_1.ThreadID.fromString(messagesIndex.threadId);
+                        return [4 /*yield*/, messages.getIndex({
+                                client: contactClient,
+                                threadId: contactThreadId,
+                                pubKey: this.identity.public.toString(),
+                            })];
+                    case 8:
+                        contactMessageIndex = _b.sent();
+                        archive = {
+                            members: {},
+                            msgs: []
+                        };
+                        archive.members[this.domain] = {
+                            pubKey: this.identity.public.toString(),
+                            ownerDecryptKey: messagesIndex.ownerDecryptKey,
+                            readerDecryptKey: messagesIndex.readerDecryptKey,
+                            threadId: this.threadId
+                        };
+                        archive.members[this.domain] = {
+                            pubKey: contactPubKey,
+                            ownerDecryptKey: contactMessageIndex.ownerDecryptKey,
+                            readerDecryptKey: contactMessageIndex.readerDecryptKey,
+                            threadId: contactThreadId
+                        };
+                        ownQ = new hub_1.Where("owner").eq(this.identity.public.toString());
+                        return [4 /*yield*/, this.client.find(this.threadId, contactPubKey + "-" + index.toString(), ownQ)];
+                    case 9:
+                        ownMsgs = (_b.sent());
+                        contactQ = new hub_1.Where("owner").eq(contactPubKey);
+                        return [4 /*yield*/, contactClient.find(contactThreadId, this.identity.public.toString() + "-" + index.toString(), {})];
+                    case 10:
+                        contactMsgs = (_b.sent());
+                        archive.msgs = __spreadArrays(ownMsgs, contactMsgs);
+                        archive.msgs.sort(function (a, b) { return a.time - b.time; });
+                        buckets = hub_1.Buckets.withUserAuth(this.userAuth);
+                        return [4 /*yield*/, buckets.getOrCreate("archive-test-0")];
+                    case 11:
+                        _a = _b.sent(), root = _a.root, threadID = _a.threadID;
+                        file = { path: '/index.html', content: JSON.stringify(archive) };
+                        return [4 /*yield*/, buckets.pushPath(root.key, 'index.html', file)];
+                    case 12:
+                        result = _b.sent();
+                        console.log(result);
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
     return TextileChat;
 }());
 exports.default = TextileChat;
