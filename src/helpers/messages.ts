@@ -16,7 +16,7 @@ import ChatError, { ChatErrorCode } from '../errors';
 
 const CONTACT_INDEX_LIMIT = 50;
 
-export interface MessagesIndex {
+export interface ContactMessagesIndex {
   currentLength: number;
   limit: number;
   readerDecryptKey: string;
@@ -35,7 +35,7 @@ export interface Message {
   id: string | null;
 }
 
-const createIndex = async ({
+const createContactIndex = async ({
   threadId,
   contactPubKey,
   client,
@@ -51,7 +51,7 @@ const createIndex = async ({
   contactThreadId: string;
   contactDbInfo: string;
   identity: Identity;
-}): Promise<MessagesIndex> => {
+}): Promise<ContactMessagesIndex> => {
   const messagesIndexCollectionName = contactPubKey + '-index';
   await findOrCreateCollection({
     client,
@@ -84,7 +84,7 @@ const createIndex = async ({
   const ownerDecryptKey = (
     await privateKey.public.encrypt(encryptionWallet.seed)
   ).toString();
-  const messagesIndex: MessagesIndex = {
+  const messagesIndex: ContactMessagesIndex = {
     currentLength: 0,
     limit: CONTACT_INDEX_LIMIT,
     readerDecryptKey,
@@ -139,7 +139,7 @@ const createIndex = async ({
   return messagesIndex;
 };
 
-const getIndex = async ({
+const getContactIndex = async ({
   client,
   threadId,
   pubKey,
@@ -147,7 +147,7 @@ const getIndex = async ({
   threadId: ThreadID;
   client: Client;
   pubKey: string;
-}): Promise<MessagesIndex> => {
+}): Promise<ContactMessagesIndex> => {
   const q = new Where('_id').eq('index');
   const collection: any = await client.find(threadId, pubKey + '-index', q);
   return collection[0];
@@ -190,106 +190,8 @@ const collectionCreate = async ({
   });
 };
 
-const sendMessage = async ({
-  messagesIndex,
-  client,
-  threadId,
-  index,
-  contactPubKey,
-  msg,
-}: {
-  msg: string;
-  threadId: ThreadID;
-  identity: PrivateKey;
-  messagesIndex: MessagesIndex;
-  index: number;
-  client: Client;
-  contactPubKey: string;
-}) => {
-  const pubKey = PublicKey.fromString(messagesIndex.encryptKey);
-  const message: Message = {
-    time: Date.now(),
-    body: await encrypt(pubKey, msg),
-    owner: '',
-    id: '',
-  };
-  return client.create(threadId, contactPubKey + '-' + index.toString(), [
-    message,
-  ]);
-};
-
-const loadMessages = async ({
-  pubKey,
-  client,
-  threadId,
-  decryptKey,
-  name,
-  index,
-}: {
-  index: number;
-  pubKey: string;
-  client: Client;
-  threadId: ThreadID;
-  decryptKey: PrivateKey;
-  name: string;
-}) => {
-  const collectionName = pubKey + '-' + index.toString();
-  const msgs: any[] = await client.find(threadId, collectionName, {});
-  const messageList: Message[] = [];
-  for (const msg of msgs) {
-    const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
-    messageList.push({
-      body: decryptedBody,
-      time: msg.time,
-      owner: name,
-      id: msg._id,
-    });
-  }
-  messageList.sort((a, b) => a.time - b.time);
-  return messageList;
-};
-
-const listenForMessages = async ({
-  pubKey,
-  client,
-  threadId,
-  decryptKey,
-  name,
-  index,
-  cb,
-}: {
-  index: number;
-  pubKey: string;
-  client: Client;
-  threadId: ThreadID;
-  decryptKey: PrivateKey;
-  name: string;
-  cb: (msgs: Message[]) => void;
-}) => {
-  const collectionName = pubKey + '-' + index.toString();
-  const emitter = new events.EventEmitter();
-  emitter.on('newMessage', cb);
-  client.listen(threadId, [{ collectionName }], async (msg: any) => {
-    if (!msg.instance) {
-      return;
-    }
-    const decryptedBody = await decryptAndDecode(decryptKey, msg.instance.body);
-    emitter.emit('newMessage', [
-      {
-        body: decryptedBody,
-        time: msg.instance.time,
-        owner: name,
-        id: msg._id,
-      },
-    ]);
-  });
-};
-
 export {
-  listenForMessages,
-  loadMessages,
-  getIndex,
-  createIndex,
+  getContactIndex,
+  createContactIndex,
   collectionCreate,
-  sendMessage,
 };
