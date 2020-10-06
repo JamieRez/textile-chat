@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Channel",
+  "title": "ChannelMembers",
   "type": "object",
   "properties": {
     "_id": {
@@ -9,16 +9,10 @@
     "name": {
       "type": "string"
     },
-    "threadId": {
+    "pubKey": {
       "type": "string"
     },
-    "dbInfo": {
-      "type": "string"
-    },
-    "indexId": {
-      "type": "string"
-    },
-    "owner": {
+    "decryptKey": {
       "type": "string"
     }
   }

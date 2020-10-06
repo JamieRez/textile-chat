@@ -142,6 +142,29 @@ export default class TextileChat {
         })
       });
     });
+    this.client.find(this.threadId, 'channelsIndex', {}).catch(() => {
+      return this.client.newCollection(this.threadId, {
+        name: 'channelsIndex',
+        schema: schemas.channelsIndex,
+        writeValidator: ((writer, event, instance) => {
+          var patch = event.patch.json_patch;
+          var type = event.patch.type;
+          if(type === "create"){
+            if (writer === patch.owner) {
+              return true
+            } else { 
+              return false
+            }
+          } else {
+            if (writer === instance.owner){
+              return true;
+            } else {
+              return false;
+            }
+          }
+        })
+      });
+    });
     const mailboxId = await this.users.getMailboxID().catch(() => null);
     if (!mailboxId) {
       await this.users.setupMailbox();
@@ -533,6 +556,68 @@ export default class TextileChat {
   }
 
   //CHANNELS
+  async createChannel(channelName: string) {
+    const dbInfo = await this.client.getDBInfo(this.threadId);
+    const privateKey = PrivateKey.fromString(this.identity.toString());
+    const encryptionWallet = PrivateKey.fromRandom();
+    const ownerDecryptKey = (
+      await privateKey.public.encrypt(encryptionWallet.seed)
+    ).toString();
+    return this.client
+    .create(this.threadId, "channelsIndex", [{ 
+      name: channelName,
+      owner: this.identity.public.toString(),
+      threadId: this.threadId.toString(),
+      dbInfo: JSON.stringify(dbInfo),
+      encryptKey: encryptionWallet.public.toString()
+    }])
+    .then(async (indexId) => {
+      this.client.find(this.threadId, `channel-${indexId}-members`, {}).catch(async () => {
+        await this.client.newCollection(this.threadId, {
+          name: `channel-${indexId}-members`,
+          schema: schemas.channelMembers,
+          //TODO: ONLY MEMBERS CAN ADD MEMBERS. ONLY OWNER CAN UPDATE
+        });
+        await this.client.create(this.threadId, `channel-${indexId}-members`, [{
+          name: this.domain,
+          pubKey: this.identity.public.toString(),
+          decryptKey: ownerDecryptKey
+        }]);
+        await this.client.newCollection(this.threadId, {
+          name: `channel-${indexId}-0`,
+          schema: schemas.messages,
+          //TODO: ONLY MEMBERS CAN ADD MESSAGES. 
+        });
+      });
+      await this.client
+      .create(this.threadId, "channels", [{ 
+        name: channelName,
+        indexId,
+        owner: this.identity.public.toString(),
+        threadId: this.threadId.toString(),
+        dbInfo: JSON.stringify(dbInfo)
+      }])
+    .catch((e) => {
+      if (e.message === "can't create already existing instance") {
+        // Contact already created - ignore error
+      } else {
+        throw new ChatError(ChatErrorCode.UnknownError, {
+          errorMessage: e.message,
+        });
+      }
+    });
+    })
+    .catch((e) => {
+      if (e.message === "can't create already existing instance") {
+        // Contact already created - ignore error
+      } else {
+        throw new ChatError(ChatErrorCode.UnknownError, {
+          errorMessage: e.message,
+        });
+      }
+    });
+  }
+
   async deleteChannel(channelId: string) {
     const q = new Where('_id').eq(channelId);
     const channel: any = (
@@ -572,7 +657,7 @@ export default class TextileChat {
     return this.channelsList;
   }
 
-  async sendChannelInvite(contactDomain: string) {
+  async sendChannelInvite(contactDomain: string, channel) {
     const domainPubKey = await getDomainPubKey(
       this.signer.provider!,
       contactDomain,
@@ -588,12 +673,22 @@ export default class TextileChat {
       domainPubKey,
     );
     const dbInfo = await this.client.getDBInfo(this.threadId);
+    const privateKey = PrivateKey.fromString(this.identity.toString());
+    const privSeed = await decrypt(privateKey, channel.encryptKey);
+    const recDecryptKey = (
+      await recipient.encrypt(privSeed)
+    ).toString();
+
     const channelInviteMessage: channels.InviteMessageBody = {
       type: 'ChannelInvite',
       sig,
       domain: this.domain,
       dbInfo: JSON.stringify(dbInfo),
+      decryptKey: recDecryptKey,
       threadId: this.threadId.toString(),
+      channelName: channel.name,
+      channelId: channel._id,
+      channelOwner: channel.owner
     };
     return this.users.sendMessage(
       this.identity,
@@ -660,19 +755,32 @@ export default class TextileChat {
   }
 
   async acceptChannelInvite(channelInviteMessage: channels.InviteMessage) {
-    const channelPubKey: string = await getAndVerifyDomainPubKey(
-      this.signer.provider!,
-      channelInviteMessage.body.domain,
-      channelInviteMessage.from,
-    );
     const dbInfo = await this.client.getDBInfo(this.threadId);
     const privateKey = PrivateKey.fromString(this.identity.toString());
     await channels.create(
       this.client,
       this.threadId,
-      channelInviteMessage.body.domain,
-      this.identity
+      this.identity,
+      channelInviteMessage.body,
     );
+    this.client.joinFromInfo(JSON.parse(channelInviteMessage.body.dbInfo));
+    const threadId = ThreadID.fromString(channelInviteMessage.body.threadId);
+    const q = new Where("pubKey").eq(this.identity.public.toString());
+    this.client.find(
+      threadId,
+      `channel-${channelInviteMessage.body.channelId}-members`,
+      q
+    ).catch(() => {
+      this.client.create(
+        threadId,
+        `channel-${channelInviteMessage.body.channelId}-members`,
+        [{
+          name: this.domain,
+          pubKey: this.identity.public.toString(),
+          decryptKey: channelInviteMessage.body.decryptKey
+        }]
+      )
+    })
     await channels.sendInviteAccepted({
       threadId: this.threadId,
       users: this.users,
@@ -689,162 +797,110 @@ export default class TextileChat {
     return this.users.deleteInboxMessage(channelInviteMessage.id);
   }
 
-  // async sendContactMessage(contactDomain: string, msg: string, index: number) {
-  //   const contactPubKey = await getDomainPubKey(
-  //     this.signer.provider!,
-  //     contactDomain,
-  //   );
-  //   const contactMsgIndex = await messages.getContactIndex({
-  //     client: this.client,
-  //     threadId: this.threadId,
-  //     pubKey: contactPubKey,
-  //   });
-  //   const pubKey = PublicKey.fromString(contactMsgIndex.encryptKey);
-  //   const message: messages.Message = {
-  //     time: Date.now(),
-  //     body: await encrypt(pubKey, msg),
-  //     owner: this.identity.public.toString(),
-  //     id: '',
-  //   };
-  //   return this.client.create(
-  //     this.threadId,
-  //     contactPubKey + '-' + index.toString(),
-  //     [message],
-  //   );
-  // }
+  async sendChannelMessage(channel, msg: string, index: number) {
+    await this.client.joinFromInfo(JSON.parse(channel.dbInfo));
+    const q = new Where('_id').eq(channel.indexId);
+    const channelIndex = await this.client.find(
+      ThreadID.fromString(channel.threadId),
+      'channelsIndex',
+      q
+    )[0];
+    if(!channelIndex) return;
+    const pubKey = PublicKey.fromString(channelIndex.encryptKey);
+    const message: messages.Message = {
+      time: Date.now(),
+      body: await encrypt(pubKey, msg),
+      owner: this.identity.public.toString(),
+      id: '',
+    };
+    return this.client.create(
+      ThreadID.fromString(channel.threadId),
+      `channel-${channel._id}-${index.toString()}`,
+      [message],
+    );
+  }
 
-  // async _loadContactMessages(
-  //   contactPubKey,
-  //   client,
-  //   pubKey,
-  //   threadId,
-  //   decryptKey,
-  //   name,
-  //   index,
-  // ) {
-  //   const messageList: messages.Message[] = [];
-  //   const collectionName = contactPubKey + '-' + index.toString();
-  //   const q = new Where("owner").eq(pubKey);
-  //   const msgs: any[] = await client.find(threadId, collectionName, q);
-  //   for (const msg of msgs) {
-  //     const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
-  //     messageList.push({
-  //       body: decryptedBody,
-  //       time: msg.time,
-  //       owner: name,
-  //       id: msg._id,
-  //     });
-  //   }
-  //   messageList.sort((a, b) => a.time - b.time);
-  //   return messageList;
-  // }
+  async _loadChannelMessages(
+    channelIndex,
+    decryptKey,
+    index,
+  ) {
+    const messageList: messages.Message[] = [];
+    const collectionName = 'channel-' + channelIndex._id + '-' + index.toString();
+    const msgs: any[] = await this.client.find(ThreadID.fromString(channelIndex.threadId), collectionName, {});
+    for (const msg of msgs) {
+      const decryptedBody = await decryptAndDecode(decryptKey, msg.body);
+      messageList.push({
+        body: decryptedBody,
+        time: msg.time,
+        owner: name,
+        id: msg._id,
+      });
+    }
+    messageList.sort((a, b) => a.time - b.time);
+    return messageList;
+  }
 
-  // async _listenContactMessages(
-  //   contactPubKey: string,
-  //   client: Client,
-  //   pubKey: string,
-  //   threadId: ThreadID,
-  //   decryptKey: PrivateKey,
-  //   name: string,
-  //   index: number,
-  //   cb: (message: messages.Message) => void,
-  // ): Promise<{ close: () => void }> {
-  //   const collectionName = contactPubKey + '-' + index.toString();
-  //   return client.listen(threadId, [{ collectionName }], async (msg: any) => {
-  //     if (!msg.instance || (msg.instance.owner !== pubKey)) {
-  //       return;
-  //     }
-  //     const decryptedBody = await decryptAndDecode(
-  //       decryptKey,
-  //       msg.instance.body,
-  //     );
-  //     const message = {
-  //       body: decryptedBody,
-  //       time: msg.instance.time,
-  //       owner: name,
-  //       id: msg._id,
-  //     };
-  //     cb(message);
-  //   });
-  // }
+  async _listenChannelMessages(
+    channelIndex,
+    decryptKey,
+    index: number,
+    cb: (message: messages.Message | null) => void,
+  ): Promise<{ close: () => void }> {
+    const collectionName = 'channel-' + channelIndex._id + '-' + index.toString();
+    return this.client.listen(ThreadID.fromString(channelIndex.threadId), [{ collectionName }], async (msg: any) => {
+      if (!msg.instance) {
+        return;
+      }
+      const decryptedBody = await decryptAndDecode(
+        decryptKey,
+        msg.instance.body,
+      );
+      const message = {
+        body: decryptedBody,
+        time: msg.instance.time,
+        owner: name,
+        id: msg._id,
+      };
+      cb(message);
+    });
+  }
 
-  // async loadContactMessages(
-  //   contactDomain: string,
-  //   index: number,
-  //   cb: (message: messages.Message) => void,
-  // ): Promise<messages.Message[]> {
-  //   if (this.activeContactListeners) {
-  //     for (const listener of this.activeContactListeners) {
-  //       listener.close();
-  //     }
-  //   }
-  //   this.activeContactListeners = [];
-  //   const _contactPubKey = await getDomainPubKey(
-  //     this.signer.provider!,
-  //     contactDomain,
-  //   );
-  //   const _messagesIndex = await messages.getIndex({
-  //     client: this.client,
-  //     threadId: this.threadId,
-  //     pubKey: _contactPubKey,
-  //   });
-  //   const _contactClient = await Client.withUserAuth(this.userAuth);
-  //   try {
-  //     await _contactClient.joinFromInfo(JSON.parse(_messagesIndex.dbInfo));
-  //   } catch (e) {
-  //     if (e.message === 'db already exists') {
-  //       // ignore, probably using same textile id
-  //     } else {
-  //       throw new ChatError(ChatErrorCode.UnknownError, {
-  //         errorMessage: e.message,
-  //       });
-  //     }
-  //   }
-  //   const contactThreadId = ThreadID.fromString(_messagesIndex.threadId);
-  //   const contactMessageIndex: messages.MessagesIndex = await messages.getIndex(
-  //     {
-  //       client: _contactClient,
-  //       threadId: contactThreadId,
-  //       pubKey: this.identity.public.toString(),
-  //     },
-  //   );
-  //   const privateKey = PrivateKey.fromString(this.identity.toString());
-  //   const ownerDecryptKey = new PrivateKey(
-  //     await decrypt(privateKey, _messagesIndex.ownerDecryptKey),
-  //   );
-  //   const readerDecryptKey = new PrivateKey(
-  //     await decrypt(privateKey, contactMessageIndex.readerDecryptKey),
-  //   );
+  async loadChannelMessages(
+    channel,
+    index: number,
+    cb,
+  ): Promise<messages.Message[]> {
+    if (this.activeContactListeners) {
+      for (const listener of this.activeContactListeners) {
+        listener.close();
+      }
+    }
+    this.activeContactListeners = [];
+    const messageList: messages.Message[] = [];
+    await this.client.joinFromInfo(JSON.parse(channel.dbInfo));
+    const q = new Where('_id').eq(channel.indexId);
+    const channelIndex = await this.client.find(
+      ThreadID.fromString(channel.threadId),
+      'channelsIndex',
+      q
+    )[0];
+    const memberQ = new Where("pubKey").eq(this.identity.public.toString());
+    const member = await this.client.find(
+      ThreadID.fromString(channel.threadId),
+      `channel-${channel.indexId}-members`,
+      memberQ
+    )[0];
+    if(channelIndex && member){
+      messageList.push(...(await this._loadChannelMessages(channelIndex, member.decryptKey, index)));
+      this.activeContactListeners.push(
+        await this._listenChannelMessages(channelIndex, member.decryptKey, index, cb),
+      );
+      return messageList;
+    } else{
+      return [];
+    }
 
-  //   const messageList: messages.Message[] = [];
-  //   const owner = [
-  //     _contactPubKey,
-  //     this.client,
-  //     this.identity.public.toString(),
-  //     this.threadId,
-  //     ownerDecryptKey,
-  //     this.domain,
-  //     index,
-  //   ];
-  //   const contact = [
-  //     this.identity.public.toString(),
-  //     _contactClient,
-  //     _contactPubKey,
-  //     contactThreadId,
-  //     readerDecryptKey,
-  //     contactDomain,
-  //     index,
-  //   ];
-  //   messageList.push(...(await this._loadContactMessages.apply(this, owner)));
-  //   messageList.push(...(await this._loadContactMessages.apply(this, contact)));
-  //   this.activeContactListeners.push(
-  //     await this._listenContactMessages.apply(this, [...owner, cb]),
-  //   );
-  //   this.activeContactListeners.push(
-  //     await this._listenContactMessages.apply(this, [...contact, cb]),
-  //   );
-  //   return messageList;
-
-  // };
+  };
 
 }

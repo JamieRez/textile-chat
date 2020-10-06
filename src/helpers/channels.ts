@@ -33,6 +33,10 @@ export interface InviteMessageBody {
   domain: string;
   dbInfo: string;
   threadId: string;
+  channelOwner: string;
+  channelName: string,
+  channelId: string;
+  decryptKey: string;
 }
 
 const deleteChannels = (
@@ -63,45 +67,6 @@ const getChannels = async (
   })
 };
 
-const sendInvite = async ({
-  domain,
-  contactDomain,
-  identity,
-  signer,
-  users,
-  dbInfo,
-  threadId,
-}: {
-  domain: string;
-  contactDomain: string;
-  identity: PrivateKey;
-  signer: Signer;
-  users: Users;
-  dbInfo: DBInfo;
-  threadId: ThreadID;
-}) => {
-  const domainPubKey = await getDomainPubKey(signer.provider!, contactDomain);
-  if (!domainPubKey) {
-    throw new ChatError(ChatErrorCode.NoPubKeySet, {
-      domain,
-    });
-  }
-  const recipient = PublicKey.fromString(domainPubKey);
-  const sig = await encrypt(identity.public, domainPubKey);
-  const channelInviteMessage: InviteMessageBody = {
-    type: 'ChannelInvite',
-    sig,
-    domain: domain,
-    dbInfo: JSON.stringify(dbInfo),
-    threadId: threadId.toString(),
-  };
-  return users.sendMessage(
-    identity,
-    recipient,
-    new TextEncoder().encode(JSON.stringify(channelInviteMessage)),
-  );
-};
-
 const sendInviteAccepted = ({
   domain,
   channelInviteMessage,
@@ -124,6 +89,9 @@ const sendInviteAccepted = ({
     domain: domain,
     dbInfo: JSON.stringify(dbInfo),
     threadId: threadId.toString(),
+    channelName: channelInviteMessage.body.channelName,
+    channelId: channelInviteMessage.body.channelId,
+    channelOwner: channelInviteMessage.body.channelOwner
   };
   const recipient = PublicKey.fromString(channelInviteMessage.from);
   return users.sendMessage(
@@ -231,13 +199,23 @@ const handleAcceptedInvite = async ({
       pubKey: identity.public.toString(),
     });
   }
-  await create(client, threadId, channelAcceptedMessage.body.domain, identity);
   await users.deleteInboxMessage(channelAcceptedMessage.id);
 };
 
-const create = (client: Client, threadId: ThreadID, domain: string, identity) => {
+const create = (
+  client: Client,
+  threadId: ThreadID,
+  identity: Identity,
+  channelAcceptedMessage: InviteMessageBody
+) => {
   return client
-    .create(threadId, "channels", [{ domain: domain, _id: domain, owner: identity.public.toString() }])
+    .create(threadId, "channels", [{ 
+      name: channelAcceptedMessage.channelName,
+      indexId: channelAcceptedMessage.channelId,
+      owner: identity.public.toString(),
+      threadId: channelAcceptedMessage.threadId,
+      dbInfo: channelAcceptedMessage.dbInfo
+    }])
     .catch((e) => {
       if (e.message === "can't create already existing instance") {
         // Contact already created - ignore error
@@ -275,7 +253,12 @@ const acceptInvite = async ({
     channelInviteMessage.body.domain,
     channelInviteMessage.from,
   );
-  await create(client, threadId, channelInviteMessage.body.domain, identity);
+  await create(
+    client,
+    threadId,
+    identity,
+    channelInviteMessage.body
+  );
   await sendInviteAccepted({
     threadId,
     users,
@@ -301,7 +284,6 @@ const declineInvite = async ({
 export {
   acceptInvite,
   declineInvite,
-  sendInvite,
   sendInviteAccepted,
   configure,
   getChannels,
