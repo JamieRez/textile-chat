@@ -9,7 +9,7 @@ import {
   Identity,
 } from '@textile/hub';
 import schemas from './schemas';
-import { findOrCreateCollection, decryptAndDecode } from '.';
+import { findOrCreateCollection, decryptAndDecode, getFunctionBody } from '.';
 import { encrypt } from './textile';
 import events from 'events';
 import ChatError, { ChatErrorCode } from '../errors';
@@ -33,6 +33,7 @@ export interface Message {
   time: number;
   owner: string | null;
   id: string | null;
+  domain: string | null;
 }
 
 const createContactIndex = async ({
@@ -53,28 +54,22 @@ const createContactIndex = async ({
   identity: Identity;
 }): Promise<ContactMessagesIndex> => {
   const messagesIndexCollectionName = contactPubKey + '-index';
+  const writeValidator = (writer, event, instance) => {
+    // eslint-disable-next-line prettier/prettier
+    const ownerPub = 'replaceThis';
+    if(writer === ownerPub){
+      return true;
+    }
+    return false;
+  }
+  const writeValidatorStr = getFunctionBody(writeValidator).replace('replaceThis', identity.public.toString());
+  // await client.deleteCollection(threadId, contactPubKey + '-index');
   await findOrCreateCollection({
     client,
     threadId,
     collectionName: messagesIndexCollectionName,
     schema: schemas.messagesIndex,
-    writeValidator: ((writer, event, instance) => {
-      var patch = event.patch.json_patch;
-      var type = event.patch.type;
-      if(type === "create"){
-        if (writer === patch.owner) {
-          return true
-        } else { 
-          return false
-        }
-      } else {
-        if (writer === instance.owner){
-          return true;
-        } else {
-          return false;
-        }
-      }
-    })
+    // writeValidator: writeValidatorStr
   });
   const contact = PublicKey.fromString(contactPubKey);
   const encryptionWallet = PrivateKey.fromRandom();
@@ -92,7 +87,7 @@ const createContactIndex = async ({
     encryptKey: encryptionWallet.public.toString(),
     threadId: contactThreadId,
     dbInfo: contactDbInfo,
-    owner: this.identity.public.toString(),
+    owner: identity.public.toString(),
     _id: 'index',
   };
   try {
@@ -113,28 +108,14 @@ const createContactIndex = async ({
         });
       }
     });
+    
+  // await client.deleteCollection(threadId, contactPubKey + '-0');
   await findOrCreateCollection({
     client,
     threadId,
     collectionName: contactPubKey + '-0',
     schema: schemas.messages,
-    writeValidator: ((writer, event, instance) => {
-      var patch = event.patch.json_patch;
-      var type = event.patch.type;
-      if(type === "create"){
-        if (writer === patch.owner) {
-          return true
-        } else { 
-          return false
-        }
-      } else {
-        if (writer === instance.owner){
-          return true;
-        } else {
-          return false;
-        }
-      }
-    })
+    // writeValidator: writeValidatorStr
   });
   return messagesIndex;
 };

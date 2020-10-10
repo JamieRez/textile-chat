@@ -58,79 +58,51 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.contactCreate = exports.handleAcceptedInvites = exports.handleAcceptedInvite = exports.deleteContacts = exports.getContacts = exports.configure = exports.sendInviteAccepted = exports.sendInvite = exports.declineInvite = exports.acceptInvite = exports.getInvites = void 0;
+exports.create = exports.handleAcceptedInvites = exports.handleAcceptedInvite = exports.deleteChannels = exports.getChannels = exports.configure = exports.sendInviteAccepted = exports.declineInvite = exports.acceptInvite = void 0;
 var hub_1 = require("@textile/hub");
 var _1 = require(".");
 var schemas_1 = __importDefault(require("./schemas"));
-var messages = __importStar(require("./messages"));
 var errors_1 = __importStar(require("../errors"));
-var CONTACT_INDEX_LIMIT = 50;
-var deleteContacts = function (client, threadId, contactIds) {
-    return client.delete(threadId, 'contacts', contactIds);
+var CHANNEL_INDEX_LIMIT = 50;
+var deleteChannels = function (client, threadId, channelIds) {
+    return client.delete(threadId, 'channels', channelIds);
 };
-exports.deleteContacts = deleteContacts;
-var deleteAllContacts = function (client, threadId) { return __awaiter(void 0, void 0, void 0, function () {
-    var contacts;
+exports.deleteChannels = deleteChannels;
+var deleteAllChannels = function (client, threadId) { return __awaiter(void 0, void 0, void 0, function () {
+    var channels;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, client.find(threadId, 'contacts', {})];
+            case 0: return [4 /*yield*/, client.find(threadId, 'channels', {})];
             case 1:
-                contacts = _a.sent();
-                return [2 /*return*/, deleteContacts(client, threadId, contacts.map(function (contact) { return contact._id; }))];
+                channels = _a.sent();
+                return [2 /*return*/, deleteChannels(client, threadId, channels.map(function (channel) { return channel._id; }))];
         }
     });
 }); };
-var getContacts = function (client, threadId) { return __awaiter(void 0, void 0, void 0, function () {
+var getChannels = function (client, threadId) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
-        return [2 /*return*/, client.find(threadId, 'contacts', {}).then(function (result) {
-                return result.map(function (contact) {
-                    return { domain: contact.domain, id: contact._id };
+        return [2 /*return*/, client.find(threadId, 'channels', {}).then(function (result) {
+                return result.map(function (channel) {
+                    return { domain: channel.domain, id: channel._id };
                 });
             })];
     });
 }); };
-exports.getContacts = getContacts;
-var sendInvite = function (_a) {
-    var domain = _a.domain, contactDomain = _a.contactDomain, identity = _a.identity, signer = _a.signer, users = _a.users, dbInfo = _a.dbInfo, threadId = _a.threadId;
-    return __awaiter(void 0, void 0, void 0, function () {
-        var domainPubKey, recipient, sig, contactInviteMessage;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
-                case 0: return [4 /*yield*/, _1.getDomainPubKey(signer.provider, contactDomain)];
-                case 1:
-                    domainPubKey = _b.sent();
-                    if (!domainPubKey) {
-                        throw new errors_1.default(errors_1.ChatErrorCode.NoPubKeySet, {
-                            domain: domain,
-                        });
-                    }
-                    recipient = hub_1.PublicKey.fromString(domainPubKey);
-                    return [4 /*yield*/, _1.encrypt(identity.public, domainPubKey)];
-                case 2:
-                    sig = _b.sent();
-                    contactInviteMessage = {
-                        type: 'ContactInvite',
-                        sig: sig,
-                        domain: domain,
-                        dbInfo: JSON.stringify(dbInfo),
-                        threadId: threadId.toString(),
-                    };
-                    return [2 /*return*/, users.sendMessage(identity, recipient, new TextEncoder().encode(JSON.stringify(contactInviteMessage)))];
-            }
-        });
-    });
-};
-exports.sendInvite = sendInvite;
+exports.getChannels = getChannels;
 var sendInviteAccepted = function (_a) {
-    var domain = _a.domain, contactInviteMessage = _a.contactInviteMessage, privateKey = _a.privateKey, users = _a.users, dbInfo = _a.dbInfo, threadId = _a.threadId;
+    var domain = _a.domain, channelInviteMessage = _a.channelInviteMessage, privateKey = _a.privateKey, users = _a.users, dbInfo = _a.dbInfo, threadId = _a.threadId;
     var body = {
-        type: 'ContactInviteAccepted',
-        sig: contactInviteMessage.body.sig,
+        type: 'ChannelInviteAccepted',
+        sig: channelInviteMessage.body.sig,
         domain: domain,
         dbInfo: JSON.stringify(dbInfo),
         threadId: threadId.toString(),
+        channelName: channelInviteMessage.body.channelName,
+        channelId: channelInviteMessage.body.channelId,
+        channelOwner: channelInviteMessage.body.channelOwner,
+        decryptKey: channelInviteMessage.body.decryptKey
     };
-    var recipient = hub_1.PublicKey.fromString(contactInviteMessage.from);
+    var recipient = hub_1.PublicKey.fromString(channelInviteMessage.from);
     return users.sendMessage(privateKey, recipient, new TextEncoder().encode(JSON.stringify(body)));
 };
 exports.sendInviteAccepted = sendInviteAccepted;
@@ -139,11 +111,11 @@ var configure = function (_a) {
     return __awaiter(void 0, void 0, void 0, function () {
         return __generator(this, function (_b) {
             return [2 /*return*/, client
-                    .find(threadId, 'contacts', {})
+                    .find(threadId, 'channels', {})
                     .catch(function () {
                     return client.newCollection(threadId, {
-                        name: 'contacts',
-                        schema: schemas_1.default.contacts,
+                        name: 'channels',
+                        schema: schemas_1.default.channels,
                     });
                 })
                     .then(function () {
@@ -159,40 +131,10 @@ var configure = function (_a) {
     });
 };
 exports.configure = configure;
-var getInvites = function (users, identity) { return __awaiter(void 0, void 0, void 0, function () {
-    var messages, contactInvites, _i, messages_1, message, body, _a, _b, _c, _d;
-    return __generator(this, function (_e) {
-        switch (_e.label) {
-            case 0: return [4 /*yield*/, users.listInboxMessages()];
-            case 1:
-                messages = _e.sent();
-                contactInvites = [];
-                _i = 0, messages_1 = messages;
-                _e.label = 2;
-            case 2:
-                if (!(_i < messages_1.length)) return [3 /*break*/, 5];
-                message = messages_1[_i];
-                _b = (_a = JSON).parse;
-                _d = (_c = new TextDecoder()).decode;
-                return [4 /*yield*/, identity.decrypt(message.body)];
-            case 3:
-                body = _b.apply(_a, [_d.apply(_c, [_e.sent()])]);
-                if (body.type === 'ContactInvite') {
-                    contactInvites.push({ body: body, from: message.from, id: message.id });
-                }
-                _e.label = 4;
-            case 4:
-                _i++;
-                return [3 /*break*/, 2];
-            case 5: return [2 /*return*/, contactInvites];
-        }
-    });
-}); };
-exports.getInvites = getInvites;
 var handleAcceptedInvites = function (_a) {
     var identity = _a.identity, threadId = _a.threadId, signer = _a.signer, users = _a.users, client = _a.client;
     return __awaiter(void 0, void 0, void 0, function () {
-        var privateKey, messages, _i, messages_2, message, body, _b, _c, _d, _e, contactAcceptedMessage;
+        var privateKey, messages, _i, messages_1, message, body, _b, _c, _d, _e, channelAcceptedMessage;
         return __generator(this, function (_f) {
             switch (_f.label) {
                 case 0:
@@ -200,24 +142,24 @@ var handleAcceptedInvites = function (_a) {
                     return [4 /*yield*/, users.listInboxMessages()];
                 case 1:
                     messages = _f.sent();
-                    _i = 0, messages_2 = messages;
+                    _i = 0, messages_1 = messages;
                     _f.label = 2;
                 case 2:
-                    if (!(_i < messages_2.length)) return [3 /*break*/, 6];
-                    message = messages_2[_i];
+                    if (!(_i < messages_1.length)) return [3 /*break*/, 6];
+                    message = messages_1[_i];
                     _c = (_b = JSON).parse;
                     _e = (_d = new TextDecoder()).decode;
                     return [4 /*yield*/, privateKey.decrypt(message.body)];
                 case 3:
                     body = _c.apply(_b, [_e.apply(_d, [_f.sent()])]);
-                    if (!(body.type === 'ContactInviteAccepted')) return [3 /*break*/, 5];
-                    contactAcceptedMessage = {
+                    if (!(body.type === 'ChannelInviteAccepted')) return [3 /*break*/, 5];
+                    channelAcceptedMessage = {
                         body: body,
                         id: message.id,
                         from: message.from,
                     };
                     return [4 /*yield*/, handleAcceptedInvite({
-                            contactAcceptedMessage: contactAcceptedMessage,
+                            channelAcceptedMessage: channelAcceptedMessage,
                             signer: signer,
                             threadId: threadId,
                             client: client,
@@ -237,16 +179,16 @@ var handleAcceptedInvites = function (_a) {
 };
 exports.handleAcceptedInvites = handleAcceptedInvites;
 var handleAcceptedInvite = function (_a) {
-    var signer = _a.signer, contactAcceptedMessage = _a.contactAcceptedMessage, client = _a.client, threadId = _a.threadId, users = _a.users, identity = _a.identity;
+    var signer = _a.signer, channelAcceptedMessage = _a.channelAcceptedMessage, client = _a.client, threadId = _a.threadId, users = _a.users, identity = _a.identity;
     return __awaiter(void 0, void 0, void 0, function () {
         var contactPubKey, privateKey, sig;
         return __generator(this, function (_b) {
             switch (_b.label) {
-                case 0: return [4 /*yield*/, _1.getAndVerifyDomainPubKey(signer.provider, contactAcceptedMessage.body.domain, contactAcceptedMessage.from)];
+                case 0: return [4 /*yield*/, _1.getAndVerifyDomainPubKey(signer.provider, channelAcceptedMessage.body.domain, channelAcceptedMessage.from)];
                 case 1:
                     contactPubKey = _b.sent();
                     privateKey = hub_1.PrivateKey.fromString(identity.toString());
-                    return [4 /*yield*/, _1.decryptAndDecode(privateKey, contactAcceptedMessage.body.sig)];
+                    return [4 /*yield*/, _1.decryptAndDecode(privateKey, channelAcceptedMessage.body.sig)];
                 case 2:
                     sig = _b.sent();
                     if (sig !== contactPubKey) {
@@ -255,22 +197,8 @@ var handleAcceptedInvite = function (_a) {
                             pubKey: identity.public.toString(),
                         });
                     }
-                    return [4 /*yield*/, contactCreate(client, threadId, contactAcceptedMessage.body.domain, identity)];
+                    return [4 /*yield*/, users.deleteInboxMessage(channelAcceptedMessage.id)];
                 case 3:
-                    _b.sent();
-                    return [4 /*yield*/, messages.createContactIndex({
-                            threadId: threadId,
-                            contactPubKey: contactPubKey,
-                            client: client,
-                            identity: identity,
-                            privateKey: privateKey,
-                            contactDbInfo: contactAcceptedMessage.body.dbInfo,
-                            contactThreadId: contactAcceptedMessage.body.threadId,
-                        })];
-                case 4:
-                    _b.sent();
-                    return [4 /*yield*/, users.deleteInboxMessage(contactAcceptedMessage.id)];
-                case 5:
                     _b.sent();
                     return [2 /*return*/];
             }
@@ -278,9 +206,15 @@ var handleAcceptedInvite = function (_a) {
     });
 };
 exports.handleAcceptedInvite = handleAcceptedInvite;
-var contactCreate = function (client, threadId, domain, identity) {
+var create = function (client, threadId, identity, channelAcceptedMessage) {
     return client
-        .create(threadId, "contacts", [{ domain: domain, _id: domain, owner: identity.public.toString() }])
+        .create(threadId, "channels", [{
+            name: channelAcceptedMessage.channelName,
+            indexId: channelAcceptedMessage.channelId,
+            owner: identity.public.toString(),
+            threadId: channelAcceptedMessage.threadId,
+            dbInfo: channelAcceptedMessage.dbInfo
+        }])
         .catch(function (e) {
         if (e.message === "can't create already existing instance") {
             // Contact already created - ignore error
@@ -292,17 +226,17 @@ var contactCreate = function (client, threadId, domain, identity) {
         }
     });
 };
-exports.contactCreate = contactCreate;
+exports.create = create;
 var acceptInvite = function (_a) {
-    var domain = _a.domain, identity = _a.identity, privateKey = _a.privateKey, threadId = _a.threadId, signer = _a.signer, contactInviteMessage = _a.contactInviteMessage, users = _a.users, client = _a.client, dbInfo = _a.dbInfo;
+    var domain = _a.domain, identity = _a.identity, privateKey = _a.privateKey, threadId = _a.threadId, signer = _a.signer, channelInviteMessage = _a.channelInviteMessage, users = _a.users, client = _a.client, dbInfo = _a.dbInfo;
     return __awaiter(void 0, void 0, void 0, function () {
         var contactPubKey;
         return __generator(this, function (_b) {
             switch (_b.label) {
-                case 0: return [4 /*yield*/, _1.getAndVerifyDomainPubKey(signer.provider, contactInviteMessage.body.domain, contactInviteMessage.from)];
+                case 0: return [4 /*yield*/, _1.getAndVerifyDomainPubKey(signer.provider, channelInviteMessage.body.domain, channelInviteMessage.from)];
                 case 1:
                     contactPubKey = _b.sent();
-                    return [4 /*yield*/, contactCreate(client, threadId, contactInviteMessage.body.domain, identity)];
+                    return [4 /*yield*/, create(client, threadId, identity, channelInviteMessage.body)];
                 case 2:
                     _b.sent();
                     return [4 /*yield*/, sendInviteAccepted({
@@ -311,24 +245,13 @@ var acceptInvite = function (_a) {
                             privateKey: privateKey,
                             dbInfo: dbInfo,
                             signer: signer,
-                            contactInviteMessage: contactInviteMessage,
+                            channelInviteMessage: channelInviteMessage,
                             domain: domain,
                         })];
                 case 3:
                     _b.sent();
-                    return [4 /*yield*/, messages.createContactIndex({
-                            threadId: threadId,
-                            contactPubKey: contactPubKey,
-                            identity: identity,
-                            privateKey: privateKey,
-                            client: client,
-                            contactThreadId: contactInviteMessage.body.threadId,
-                            contactDbInfo: contactInviteMessage.body.dbInfo,
-                        })];
+                    return [4 /*yield*/, users.deleteInboxMessage(channelInviteMessage.id)];
                 case 4:
-                    _b.sent();
-                    return [4 /*yield*/, users.deleteInboxMessage(contactInviteMessage.id)];
-                case 5:
                     _b.sent();
                     return [2 /*return*/];
             }
@@ -337,10 +260,10 @@ var acceptInvite = function (_a) {
 };
 exports.acceptInvite = acceptInvite;
 var declineInvite = function (_a) {
-    var contactInviteMessage = _a.contactInviteMessage, users = _a.users;
+    var channelInviteMessage = _a.channelInviteMessage, users = _a.users;
     return __awaiter(void 0, void 0, void 0, function () {
         return __generator(this, function (_b) {
-            return [2 /*return*/, users.deleteInboxMessage(contactInviteMessage.id)];
+            return [2 /*return*/, users.deleteInboxMessage(channelInviteMessage.id)];
         });
     });
 };

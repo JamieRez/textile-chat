@@ -28,6 +28,75 @@ declare const _default: {
         };
         additionalProperties: boolean;
     };
+    channels: {
+        $schema: string;
+        title: string;
+        type: string;
+        properties: {
+            _id: {
+                type: string;
+            };
+            name: {
+                type: string;
+            };
+            threadId: {
+                type: string;
+            };
+            dbInfo: {
+                type: string;
+            };
+            indexId: {
+                type: string;
+            };
+            owner: {
+                type: string;
+            };
+        };
+    };
+    channelsIndex: {
+        $schema: string;
+        title: string;
+        type: string;
+        properties: {
+            _id: {
+                type: string;
+            };
+            name: {
+                type: string;
+            };
+            owner: {
+                type: string;
+            };
+            threadId: {
+                type: string;
+            };
+            dbInfo: {
+                type: string;
+            };
+            encryptKey: {
+                type: string;
+            };
+        };
+    };
+    channelMembers: {
+        $schema: string;
+        title: string;
+        type: string;
+        properties: {
+            _id: {
+                type: string;
+            };
+            name: {
+                type: string;
+            };
+            pubKey: {
+                type: string;
+            };
+            decryptKey: {
+                type: string;
+            };
+        };
+    };
     messages: {
         $schema: string;
         title: string;
@@ -43,6 +112,9 @@ declare const _default: {
                 type: string;
             };
             owner: {
+                type: string;
+            };
+            domain: {
                 type: string;
             };
         };

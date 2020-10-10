@@ -22,6 +22,7 @@ import {
   decrypt,
   decryptAndDecode,
   getChatThreadId,
+  getFunctionBody
 } from './helpers';
 import * as contacts from './helpers/contacts';
 import * as channels from './helpers/channels';
@@ -96,75 +97,48 @@ export default class TextileChat {
     await this.users.getToken(identity);
     await this.client.getToken(identity);
     this.threadId = await getChatThreadId(this.users, this.client);
-    this.client.find(this.threadId, 'contacts', {}).catch(() => {
-      return this.client.newCollection(this.threadId, {
+    const writeValidatorStr = `let ownerPub = '${this.identity.public.toString()}';
+if (writer === ownerPub) {
+  return true;
+}
+return false;
+`;
+    // await this.client.deleteCollection(this.threadId, 'contacts');
+    try {
+      await this.client.newCollection(this.threadId, {
         name: 'contacts',
         schema: schemas.contacts,
-        writeValidator: ((writer, event, instance) => {
-          var patch = event.patch.json_patch;
-          var type = event.patch.type;
-          if(type === "create"){
-            if (writer === patch.owner) {
-              return true
-            } else { 
-              return false
-            }
-          } else {
-            if (writer === instance.owner){
-              return true;
-            } else {
-              return false;
-            }
-          }
-        })
+        // writeValidator: writeValidatorStr
       });
-    });
-    this.client.find(this.threadId, 'channels', {}).catch(() => {
-      return this.client.newCollection(this.threadId, {
+    } catch (e) {
+      console.log(e)
+    }
+    // const ids:any[] = [];
+    // const cs = await this.client.find(this.threadId, 'channels', {});
+    // cs.forEach((c:any) => {
+    //   ids.push(c._id);
+    // })
+    // await this.client.delete(this.threadId, 'channels', ids);
+    // await this.client.deleteCollection(this.threadId, 'channels');
+    try {
+      await this.client.newCollection(this.threadId, {
         name: 'channels',
         schema: schemas.channels,
-        writeValidator: ((writer, event, instance) => {
-          var patch = event.patch.json_patch;
-          var type = event.patch.type;
-          if(type === "create"){
-            if (writer === patch.owner) {
-              return true
-            } else { 
-              return false
-            }
-          } else {
-            if (writer === instance.owner){
-              return true;
-            } else {
-              return false;
-            }
-          }
-        })
+        // writeValidator: writeValidatorStr
       });
-    });
-    this.client.find(this.threadId, 'channelsIndex', {}).catch(() => {
-      return this.client.newCollection(this.threadId, {
+    } catch (e) {
+      console.log(e)
+    }
+    // await this.client.deleteCollection(this.threadId, 'channelsIndex');
+    try {
+      await this.client.newCollection(this.threadId, {
         name: 'channelsIndex',
         schema: schemas.channelsIndex,
-        writeValidator: ((writer, event, instance) => {
-          var patch = event.patch.json_patch;
-          var type = event.patch.type;
-          if(type === "create"){
-            if (writer === patch.owner) {
-              return true
-            } else { 
-              return false
-            }
-          } else {
-            if (writer === instance.owner){
-              return true;
-            } else {
-              return false;
-            }
-          }
-        })
+        // writeValidator: writeValidatorStr
       });
-    });
+    } catch (e) {
+      console.log(e)
+    }
     const mailboxId = await this.users.getMailboxID().catch(() => null);
     if (!mailboxId) {
       await this.users.setupMailbox();
@@ -197,10 +171,6 @@ export default class TextileChat {
         if (!contact?.instance) {
           return;
         }
-        this.contactsList.push({
-          domain: contact.instance.domain,
-          id: contact.instance._id
-        });
         this.emitter.emit('contact', {
           domain: contact.instance.domain,
           id: contact.instance._id,
@@ -351,6 +321,7 @@ export default class TextileChat {
       time: Date.now(),
       body: await encrypt(pubKey, msg),
       owner: this.identity.public.toString(),
+      domain: '',
       id: '',
     };
     return this.client.create(
@@ -380,6 +351,7 @@ export default class TextileChat {
         time: msg.time,
         owner: name,
         id: msg._id,
+        domain: ''
       });
     }
     messageList.sort((a, b) => a.time - b.time);
@@ -410,6 +382,7 @@ export default class TextileChat {
         time: msg.instance.time,
         owner: name,
         id: msg._id,
+        domain: ''
       };
       cb(message);
     });
@@ -563,59 +536,41 @@ export default class TextileChat {
     const ownerDecryptKey = (
       await privateKey.public.encrypt(encryptionWallet.seed)
     ).toString();
-    return this.client
-    .create(this.threadId, "channelsIndex", [{ 
+    const createdIndex = await this.client.create(this.threadId, "channelsIndex", [{ 
       name: channelName,
       owner: this.identity.public.toString(),
       threadId: this.threadId.toString(),
       dbInfo: JSON.stringify(dbInfo),
       encryptKey: encryptionWallet.public.toString()
-    }])
-    .then(async (indexId) => {
-      this.client.find(this.threadId, `channel-${indexId}-members`, {}).catch(async () => {
-        await this.client.newCollection(this.threadId, {
-          name: `channel-${indexId}-members`,
-          schema: schemas.channelMembers,
-          //TODO: ONLY MEMBERS CAN ADD MEMBERS. ONLY OWNER CAN UPDATE
-        });
-        await this.client.create(this.threadId, `channel-${indexId}-members`, [{
-          name: this.domain,
-          pubKey: this.identity.public.toString(),
-          decryptKey: ownerDecryptKey
-        }]);
-        await this.client.newCollection(this.threadId, {
-          name: `channel-${indexId}-0`,
-          schema: schemas.messages,
-          //TODO: ONLY MEMBERS CAN ADD MESSAGES. 
-        });
+    }]);
+    console.log("CREATED CHANNEL INDEX");
+    console.log(createdIndex);
+    const indexId = createdIndex[0];
+    this.client.find(this.threadId, `channel-${indexId}-members`, {}).catch(async () => {
+      await this.client.newCollection(this.threadId, {
+        name: `channel-${indexId}-members`,
+        schema: schemas.channelMembers,
+        //TODO: ONLY MEMBERS CAN ADD MEMBERS. ONLY OWNER CAN UPDATE
       });
-      await this.client
-      .create(this.threadId, "channels", [{ 
-        name: channelName,
-        indexId,
-        owner: this.identity.public.toString(),
-        threadId: this.threadId.toString(),
-        dbInfo: JSON.stringify(dbInfo)
-      }])
-    .catch((e) => {
-      if (e.message === "can't create already existing instance") {
-        // Contact already created - ignore error
-      } else {
-        throw new ChatError(ChatErrorCode.UnknownError, {
-          errorMessage: e.message,
-        });
-      }
+      await this.client.create(this.threadId, `channel-${indexId}-members`, [{
+        name: this.domain,
+        pubKey: this.identity.public.toString(),
+        decryptKey: ownerDecryptKey
+      }]);
+      await this.client.newCollection(this.threadId, {
+        name: `channel-${indexId}-0`,
+        schema: schemas.messages,
+        //TODO: ONLY MEMBERS CAN ADD MESSAGES. 
+      });
     });
-    })
-    .catch((e) => {
-      if (e.message === "can't create already existing instance") {
-        // Contact already created - ignore error
-      } else {
-        throw new ChatError(ChatErrorCode.UnknownError, {
-          errorMessage: e.message,
-        });
-      }
-    });
+    await this.client
+    .create(this.threadId, "channels", [{ 
+      name: channelName,
+      indexId,
+      owner: this.identity.public.toString(),
+      threadId: this.threadId.toString(),
+      dbInfo: JSON.stringify(dbInfo)
+    }])
   }
 
   async deleteChannel(channelId: string) {
@@ -628,13 +583,13 @@ export default class TextileChat {
     }
   }
 
-  async getChannels(cb: (channel: { name: string; id: string }) => void) {
+  async getChannels(cb: (channel: any) => void) {
     this.emitter.on('channel', cb);
     this.channelsList = [];
     const q = new Where("owner").eq(this.identity.public.toString());
     this.client.find(this.threadId, 'channels', q).then((result: any) => {
       result.map((channel) => {
-        this.channelsList.push({ name: channel.name, id: channel._id });
+        this.channelsList.push(channel);
       });
     });
     this.client.listen(
@@ -644,20 +599,33 @@ export default class TextileChat {
         if (!channel?.instance) {
           return;
         }
-        this.channelsList.push({
-          domain: channel.instance.domain,
-          id: channel.instance._id
-        });
-        this.emitter.emit('channel', {
-          domain: channel.instance.domain,
-          id: channel.instance._id,
-        });
+        this.emitter.emit('channel', channel.instance);
       },
     );
     return this.channelsList;
   }
 
   async sendChannelInvite(contactDomain: string, channel) {
+    try {
+      await this.client.joinFromInfo(JSON.parse(channel.dbInfo));
+    } catch {
+
+    }
+    const q = new Where('_id').eq(channel.indexId);
+    const channelIndex: any = (await this.client.find(
+      ThreadID.fromString(channel.threadId),
+      'channelsIndex',
+      q
+    ))[0];
+    if(!channelIndex) return;
+    const memberQ = new Where("pubKey").eq(this.identity.public.toString());
+    const member: any= (await this.client.find(
+      ThreadID.fromString(channel.threadId),
+      `channel-${channel.indexId}-members`,
+      memberQ
+    ))[0];
+    const privateKey = PrivateKey.fromString(this.identity.toString());
+    const decryptKey = await decrypt(privateKey, member.decryptKey);
     const domainPubKey = await getDomainPubKey(
       this.signer.provider!,
       contactDomain,
@@ -673,11 +641,10 @@ export default class TextileChat {
       domainPubKey,
     );
     const dbInfo = await this.client.getDBInfo(this.threadId);
-    const privateKey = PrivateKey.fromString(this.identity.toString());
-    const privSeed = await decrypt(privateKey, channel.encryptKey);
     const recDecryptKey = (
-      await recipient.encrypt(privSeed)
+      await recipient.encrypt(decryptKey)
     ).toString();
+    console.log(recDecryptKey);
 
     const channelInviteMessage: channels.InviteMessageBody = {
       type: 'ChannelInvite',
@@ -686,9 +653,9 @@ export default class TextileChat {
       dbInfo: JSON.stringify(dbInfo),
       decryptKey: recDecryptKey,
       threadId: this.threadId.toString(),
-      channelName: channel.name,
-      channelId: channel._id,
-      channelOwner: channel.owner
+      channelName: channelIndex.name,
+      channelId: channelIndex._id,
+      channelOwner: channelIndex.owner
     };
     return this.users.sendMessage(
       this.identity,
@@ -755,23 +722,30 @@ export default class TextileChat {
   }
 
   async acceptChannelInvite(channelInviteMessage: channels.InviteMessage) {
+    console.log("ACCEPT CHANNEL INVITE");
     const dbInfo = await this.client.getDBInfo(this.threadId);
     const privateKey = PrivateKey.fromString(this.identity.toString());
-    await channels.create(
-      this.client,
-      this.threadId,
-      this.identity,
-      channelInviteMessage.body,
-    );
-    this.client.joinFromInfo(JSON.parse(channelInviteMessage.body.dbInfo));
+    try {
+      await channels.create(
+        this.client,
+        this.threadId,
+        this.identity,
+        channelInviteMessage.body,
+      );
+      console.log("CREATED CHANNEL");
+    } catch(e) {
+      console.log(e)
+    }
+    try {
+      await this.client.joinFromInfo(JSON.parse(channelInviteMessage.body.dbInfo));
+      console.log("JOINED DB")
+    } catch(e) {
+      console.log(e)
+    }
     const threadId = ThreadID.fromString(channelInviteMessage.body.threadId);
     const q = new Where("pubKey").eq(this.identity.public.toString());
-    this.client.find(
-      threadId,
-      `channel-${channelInviteMessage.body.channelId}-members`,
-      q
-    ).catch(() => {
-      this.client.create(
+    try {
+      await this.client.create(
         threadId,
         `channel-${channelInviteMessage.body.channelId}-members`,
         [{
@@ -780,17 +754,22 @@ export default class TextileChat {
           decryptKey: channelInviteMessage.body.decryptKey
         }]
       )
-    })
+      console.log("CREATED MEMBER");
+    } catch(e) {
+      console.log(e);
+    }
     await channels.sendInviteAccepted({
       threadId: this.threadId,
       users: this.users,
       privateKey: privateKey,
-      dbInfo,
+      dbInfo: dbInfo,
       signer: this.signer,
       channelInviteMessage,
       domain: this.domain,
     });
+    console.log("SEND BACK ACCEPTED")
     await this.users.deleteInboxMessage(channelInviteMessage.id);
+    console.log("REMOVE INVITE MESSAGE");
   }
 
   async declineChannelInvite(channelInviteMessage: channels.InviteMessage) {
@@ -798,24 +777,28 @@ export default class TextileChat {
   }
 
   async sendChannelMessage(channel, msg: string, index: number) {
-    await this.client.joinFromInfo(JSON.parse(channel.dbInfo));
+    try {
+      await this.client.joinFromInfo(JSON.parse(channel.dbInfo));
+    } catch {
+    }
     const q = new Where('_id').eq(channel.indexId);
-    const channelIndex = await this.client.find(
+    const channelIndex: any = (await this.client.find(
       ThreadID.fromString(channel.threadId),
       'channelsIndex',
       q
-    )[0];
+    ))[0];
     if(!channelIndex) return;
     const pubKey = PublicKey.fromString(channelIndex.encryptKey);
     const message: messages.Message = {
       time: Date.now(),
       body: await encrypt(pubKey, msg),
       owner: this.identity.public.toString(),
+      domain: this.domain,
       id: '',
     };
     return this.client.create(
       ThreadID.fromString(channel.threadId),
-      `channel-${channel._id}-${index.toString()}`,
+      `channel-${channel.indexId}-${index.toString()}`,
       [message],
     );
   }
@@ -833,7 +816,8 @@ export default class TextileChat {
       messageList.push({
         body: decryptedBody,
         time: msg.time,
-        owner: name,
+        owner: msg.owner,
+        domain: msg.domain,
         id: msg._id,
       });
     }
@@ -859,9 +843,11 @@ export default class TextileChat {
       const message = {
         body: decryptedBody,
         time: msg.instance.time,
-        owner: name,
-        id: msg._id,
+        owner: msg.instance.owner,
+        id: msg.instance._id,
+        domain: msg.instance.domain
       };
+      console.log(message);
       cb(message);
     });
   }
@@ -878,23 +864,32 @@ export default class TextileChat {
     }
     this.activeContactListeners = [];
     const messageList: messages.Message[] = [];
-    await this.client.joinFromInfo(JSON.parse(channel.dbInfo));
+    try {
+      await this.client.joinFromInfo(JSON.parse(channel.dbInfo));
+    } catch (e) {
+      console.log(e);
+    }
     const q = new Where('_id').eq(channel.indexId);
-    const channelIndex = await this.client.find(
+    console.log(channel.indexId);
+    const channelIndex: any = (await this.client.find(
       ThreadID.fromString(channel.threadId),
       'channelsIndex',
       q
-    )[0];
+    ))[0];
     const memberQ = new Where("pubKey").eq(this.identity.public.toString());
-    const member = await this.client.find(
+    const member: any= (await this.client.find(
       ThreadID.fromString(channel.threadId),
       `channel-${channel.indexId}-members`,
       memberQ
-    )[0];
+    ))[0];
+    const privateKey = PrivateKey.fromString(this.identity.toString());
+    const decryptKey = new PrivateKey(
+      await decrypt(privateKey, member.decryptKey),
+    );
     if(channelIndex && member){
-      messageList.push(...(await this._loadChannelMessages(channelIndex, member.decryptKey, index)));
+      messageList.push(...(await this._loadChannelMessages(channelIndex, decryptKey, index)));
       this.activeContactListeners.push(
-        await this._listenChannelMessages(channelIndex, member.decryptKey, index, cb),
+        await this._listenChannelMessages(channelIndex, decryptKey, index, cb),
       );
       return messageList;
     } else{

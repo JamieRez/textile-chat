@@ -161,6 +161,18 @@ const decrypt = async (identity: PrivateKey, message: string) => {
   );
 };
 
+const getFunctionBody = (fn: ((...args: any[]) => any) | string): string => {
+  // https://stackoverflow.com/a/25229488/1256988
+  function removeCommentsFromSource(str: string) {
+    return str.replace(
+      /(?:\/\*(?:[\s\S]*?)\*\/)|(?:([\s;])+\/\/(?:.*)$)/gm,
+      "$1"
+    )
+  }
+  const s = removeCommentsFromSource(fn.toString())
+  return s.substring(s.indexOf("{") + 1, s.lastIndexOf("}"))
+}
+
 export {
   encrypt,
   decrypt,
@@ -171,4 +183,5 @@ export {
   auth,
   getAndVerifyDomainPubKey,
   getDomainPubKey,
+  getFunctionBody
 };

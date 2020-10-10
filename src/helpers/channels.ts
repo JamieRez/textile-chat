@@ -91,7 +91,8 @@ const sendInviteAccepted = ({
     threadId: threadId.toString(),
     channelName: channelInviteMessage.body.channelName,
     channelId: channelInviteMessage.body.channelId,
-    channelOwner: channelInviteMessage.body.channelOwner
+    channelOwner: channelInviteMessage.body.channelOwner,
+    decryptKey: channelInviteMessage.body.decryptKey
   };
   const recipient = PublicKey.fromString(channelInviteMessage.from);
   return users.sendMessage(

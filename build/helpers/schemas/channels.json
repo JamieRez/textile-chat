@@ -1,21 +1,24 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Message",
+    "title": "Channel",
     "type": "object",
     "properties": {
         "_id": {
             "type": "string"
         },
-        "body": {
+        "name": {
             "type": "string"
         },
-        "time": {
-            "type": "number"
+        "threadId": {
+            "type": "string"
+        },
+        "dbInfo": {
+            "type": "string"
+        },
+        "indexId": {
+            "type": "string"
         },
         "owner": {
-            "type": "string"
-        },
-        "domain": {
             "type": "string"
         }
     }

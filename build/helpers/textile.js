@@ -66,7 +66,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDomainPubKey = exports.getAndVerifyDomainPubKey = exports.auth = exports.configureDomain = exports.getIdentity = exports.findOrCreateCollection = exports.decryptAndDecode = exports.decrypt = exports.encrypt = void 0;
+exports.getFunctionBody = exports.getDomainPubKey = exports.getAndVerifyDomainPubKey = exports.auth = exports.configureDomain = exports.getIdentity = exports.findOrCreateCollection = exports.decryptAndDecode = exports.decrypt = exports.encrypt = void 0;
 var ethers_1 = require("ethers");
 var hub_1 = require("@textile/hub");
 var _1 = require(".");
@@ -225,3 +225,12 @@ var decrypt = function (identity, message) { return __awaiter(void 0, void 0, vo
     });
 }); };
 exports.decrypt = decrypt;
+var getFunctionBody = function (fn) {
+    // https://stackoverflow.com/a/25229488/1256988
+    function removeCommentsFromSource(str) {
+        return str.replace(/(?:\/\*(?:[\s\S]*?)\*\/)|(?:([\s;])+\/\/(?:.*)$)/gm, "$1");
+    }
+    var s = removeCommentsFromSource(fn.toString());
+    return s.substring(s.indexOf("{") + 1, s.lastIndexOf("}"));
+};
+exports.getFunctionBody = getFunctionBody;

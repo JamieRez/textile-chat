@@ -16,4 +16,5 @@ declare const findOrCreateCollection: ({ threadId, client, collectionName, schem
 declare const decryptAndDecode: (identity: PrivateKey, message: string) => Promise<string>;
 declare const encrypt: (pubKey: PublicKey, message: string) => Promise<string>;
 declare const decrypt: (identity: PrivateKey, message: string) => Promise<Uint8Array>;
-export { encrypt, decrypt, decryptAndDecode, findOrCreateCollection, getIdentity, configureDomain, auth, getAndVerifyDomainPubKey, getDomainPubKey, };
+declare const getFunctionBody: (fn: string | ((...args: any[]) => any)) => string;
+export { encrypt, decrypt, decryptAndDecode, findOrCreateCollection, getIdentity, configureDomain, auth, getAndVerifyDomainPubKey, getDomainPubKey, getFunctionBody };

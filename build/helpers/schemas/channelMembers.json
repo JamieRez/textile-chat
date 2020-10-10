@@ -1,21 +1,18 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Message",
+    "title": "ChannelMembers",
     "type": "object",
     "properties": {
         "_id": {
             "type": "string"
         },
-        "body": {
+        "name": {
             "type": "string"
         },
-        "time": {
-            "type": "number"
-        },
-        "owner": {
+        "pubKey": {
             "type": "string"
         },
-        "domain": {
+        "decryptKey": {
             "type": "string"
         }
     }

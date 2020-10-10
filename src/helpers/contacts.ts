@@ -248,7 +248,7 @@ const handleAcceptedInvite = async ({
     });
   }
   await contactCreate(client, threadId, contactAcceptedMessage.body.domain, identity);
-  await messages.createIndex({
+  await messages.createContactIndex({
     threadId,
     contactPubKey,
     client,
@@ -310,7 +310,7 @@ const acceptInvite = async ({
     contactInviteMessage,
     domain,
   });
-  await messages.createIndex({
+  await messages.createContactIndex({
     threadId,
     contactPubKey,
     identity,

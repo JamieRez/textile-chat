@@ -58,49 +58,38 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendMessage = exports.collectionCreate = exports.createIndex = exports.getIndex = exports.loadMessages = exports.listenForMessages = void 0;
+exports.collectionCreate = exports.createContactIndex = exports.getContactIndex = void 0;
 var hub_1 = require("@textile/hub");
 var schemas_1 = __importDefault(require("./schemas"));
 var _1 = require(".");
-var textile_1 = require("./textile");
-var events_1 = __importDefault(require("events"));
 var errors_1 = __importStar(require("../errors"));
 var CONTACT_INDEX_LIMIT = 50;
-var createIndex = function (_a) {
+var createContactIndex = function (_a) {
     var threadId = _a.threadId, contactPubKey = _a.contactPubKey, client = _a.client, privateKey = _a.privateKey, contactThreadId = _a.contactThreadId, contactDbInfo = _a.contactDbInfo, identity = _a.identity;
     return __awaiter(void 0, void 0, void 0, function () {
-        var messagesIndexCollectionName, contact, encryptionWallet, readerDecryptKey, ownerDecryptKey, messagesIndex, e_1;
+        var messagesIndexCollectionName, writeValidator, writeValidatorStr, contact, encryptionWallet, readerDecryptKey, ownerDecryptKey, messagesIndex, e_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     messagesIndexCollectionName = contactPubKey + '-index';
+                    writeValidator = function (writer, event, instance) {
+                        // eslint-disable-next-line prettier/prettier
+                        var ownerPub = 'replaceThis';
+                        if (writer === ownerPub) {
+                            return true;
+                        }
+                        return false;
+                    };
+                    writeValidatorStr = _1.getFunctionBody(writeValidator).replace('replaceThis', identity.public.toString());
+                    // await client.deleteCollection(threadId, contactPubKey + '-index');
                     return [4 /*yield*/, _1.findOrCreateCollection({
                             client: client,
                             threadId: threadId,
                             collectionName: messagesIndexCollectionName,
                             schema: schemas_1.default.messagesIndex,
-                            writeValidator: (function (writer, event, instance) {
-                                var patch = event.patch.json_patch;
-                                var type = event.patch.type;
-                                if (type === "create") {
-                                    if (writer === patch.owner) {
-                                        return true;
-                                    }
-                                    else {
-                                        return false;
-                                    }
-                                }
-                                else {
-                                    if (writer === instance.owner) {
-                                        return true;
-                                    }
-                                    else {
-                                        return false;
-                                    }
-                                }
-                            })
                         })];
                 case 1:
+                    // await client.deleteCollection(threadId, contactPubKey + '-index');
                     _b.sent();
                     contact = hub_1.PublicKey.fromString(contactPubKey);
                     encryptionWallet = hub_1.PrivateKey.fromRandom();
@@ -118,7 +107,7 @@ var createIndex = function (_a) {
                         encryptKey: encryptionWallet.public.toString(),
                         threadId: contactThreadId,
                         dbInfo: contactDbInfo,
-                        owner: this.identity.public.toString(),
+                        owner: identity.public.toString(),
                         _id: 'index',
                     };
                     _b.label = 4;
@@ -148,41 +137,23 @@ var createIndex = function (_a) {
                     })];
                 case 8:
                     _b.sent();
+                    // await client.deleteCollection(threadId, contactPubKey + '-0');
                     return [4 /*yield*/, _1.findOrCreateCollection({
                             client: client,
                             threadId: threadId,
                             collectionName: contactPubKey + '-0',
                             schema: schemas_1.default.messages,
-                            writeValidator: (function (writer, event, instance) {
-                                var patch = event.patch.json_patch;
-                                var type = event.patch.type;
-                                if (type === "create") {
-                                    if (writer === patch.owner) {
-                                        return true;
-                                    }
-                                    else {
-                                        return false;
-                                    }
-                                }
-                                else {
-                                    if (writer === instance.owner) {
-                                        return true;
-                                    }
-                                    else {
-                                        return false;
-                                    }
-                                }
-                            })
                         })];
                 case 9:
+                    // await client.deleteCollection(threadId, contactPubKey + '-0');
                     _b.sent();
                     return [2 /*return*/, messagesIndex];
             }
         });
     });
 };
-exports.createIndex = createIndex;
-var getIndex = function (_a) {
+exports.createContactIndex = createContactIndex;
+var getContactIndex = function (_a) {
     var client = _a.client, threadId = _a.threadId, pubKey = _a.pubKey;
     return __awaiter(void 0, void 0, void 0, function () {
         var q, collection;
@@ -198,7 +169,7 @@ var getIndex = function (_a) {
         });
     });
 };
-exports.getIndex = getIndex;
+exports.getContactIndex = getContactIndex;
 var collectionCreate = function (_a) {
     var indexNumber = _a.indexNumber, client = _a.client, threadId = _a.threadId, contactPubKey = _a.contactPubKey;
     return __awaiter(void 0, void 0, void 0, function () {
@@ -235,102 +206,3 @@ var collectionCreate = function (_a) {
     });
 };
 exports.collectionCreate = collectionCreate;
-var sendMessage = function (_a) {
-    var messagesIndex = _a.messagesIndex, client = _a.client, threadId = _a.threadId, index = _a.index, contactPubKey = _a.contactPubKey, msg = _a.msg;
-    return __awaiter(void 0, void 0, void 0, function () {
-        var pubKey, message, _b;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
-                case 0:
-                    pubKey = hub_1.PublicKey.fromString(messagesIndex.encryptKey);
-                    _b = {
-                        time: Date.now()
-                    };
-                    return [4 /*yield*/, textile_1.encrypt(pubKey, msg)];
-                case 1:
-                    message = (_b.body = _c.sent(),
-                        _b.owner = '',
-                        _b.id = '',
-                        _b);
-                    return [2 /*return*/, client.create(threadId, contactPubKey + '-' + index.toString(), [
-                            message,
-                        ])];
-            }
-        });
-    });
-};
-exports.sendMessage = sendMessage;
-var loadMessages = function (_a) {
-    var pubKey = _a.pubKey, client = _a.client, threadId = _a.threadId, decryptKey = _a.decryptKey, name = _a.name, index = _a.index;
-    return __awaiter(void 0, void 0, void 0, function () {
-        var collectionName, msgs, messageList, _i, msgs_1, msg, decryptedBody;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
-                case 0:
-                    collectionName = pubKey + '-' + index.toString();
-                    return [4 /*yield*/, client.find(threadId, collectionName, {})];
-                case 1:
-                    msgs = _b.sent();
-                    messageList = [];
-                    _i = 0, msgs_1 = msgs;
-                    _b.label = 2;
-                case 2:
-                    if (!(_i < msgs_1.length)) return [3 /*break*/, 5];
-                    msg = msgs_1[_i];
-                    return [4 /*yield*/, _1.decryptAndDecode(decryptKey, msg.body)];
-                case 3:
-                    decryptedBody = _b.sent();
-                    messageList.push({
-                        body: decryptedBody,
-                        time: msg.time,
-                        owner: name,
-                        id: msg._id,
-                    });
-                    _b.label = 4;
-                case 4:
-                    _i++;
-                    return [3 /*break*/, 2];
-                case 5:
-                    messageList.sort(function (a, b) { return a.time - b.time; });
-                    return [2 /*return*/, messageList];
-            }
-        });
-    });
-};
-exports.loadMessages = loadMessages;
-var listenForMessages = function (_a) {
-    var pubKey = _a.pubKey, client = _a.client, threadId = _a.threadId, decryptKey = _a.decryptKey, name = _a.name, index = _a.index, cb = _a.cb;
-    return __awaiter(void 0, void 0, void 0, function () {
-        var collectionName, emitter;
-        return __generator(this, function (_b) {
-            collectionName = pubKey + '-' + index.toString();
-            emitter = new events_1.default.EventEmitter();
-            emitter.on('newMessage', cb);
-            client.listen(threadId, [{ collectionName: collectionName }], function (msg) { return __awaiter(void 0, void 0, void 0, function () {
-                var decryptedBody;
-                return __generator(this, function (_a) {
-                    switch (_a.label) {
-                        case 0:
-                            if (!msg.instance) {
-                                return [2 /*return*/];
-                            }
-                            return [4 /*yield*/, _1.decryptAndDecode(decryptKey, msg.instance.body)];
-                        case 1:
-                            decryptedBody = _a.sent();
-                            emitter.emit('newMessage', [
-                                {
-                                    body: decryptedBody,
-                                    time: msg.instance.time,
-                                    owner: name,
-                                    id: msg._id,
-                                },
-                            ]);
-                            return [2 /*return*/];
-                    }
-                });
-            }); });
-            return [2 /*return*/];
-        });
-    });
-};
-exports.listenForMessages = listenForMessages;
