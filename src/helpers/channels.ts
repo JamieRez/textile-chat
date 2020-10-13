@@ -39,6 +39,25 @@ export interface InviteMessageBody {
   decryptKey: string;
 }
 
+export interface Channel {
+  _id: string;
+  name: string;
+  threadId: string;
+  dbInfo: string;
+  indexId: string;
+  owner: string;
+}
+
+export interface ChannelIndex {
+  _id: string;
+  name: string;
+  threadId: string;
+  dbInfo: string;
+  indexId: string;
+  owner: string;
+  encryptKey: string;
+}
+
 const deleteChannels = (
   client: Client,
   threadId: ThreadID,

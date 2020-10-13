@@ -97,13 +97,13 @@ export default class TextileChat {
     await this.users.getToken(identity);
     await this.client.getToken(identity);
     this.threadId = await getChatThreadId(this.users, this.client);
+    //THIS WILL WORK WHEN TEXTILE DOES A FIX
     const writeValidatorStr = `let ownerPub = '${this.identity.public.toString()}';
 if (writer === ownerPub) {
   return true;
 }
 return false;
 `;
-    // await this.client.deleteCollection(this.threadId, 'contacts');
     try {
       await this.client.newCollection(this.threadId, {
         name: 'contacts',
@@ -113,13 +113,6 @@ return false;
     } catch (e) {
       console.log(e)
     }
-    // const ids:any[] = [];
-    // const cs = await this.client.find(this.threadId, 'channels', {});
-    // cs.forEach((c:any) => {
-    //   ids.push(c._id);
-    // })
-    // await this.client.delete(this.threadId, 'channels', ids);
-    // await this.client.deleteCollection(this.threadId, 'channels');
     try {
       await this.client.newCollection(this.threadId, {
         name: 'channels',
@@ -129,7 +122,6 @@ return false;
     } catch (e) {
       console.log(e)
     }
-    // await this.client.deleteCollection(this.threadId, 'channelsIndex');
     try {
       await this.client.newCollection(this.threadId, {
         name: 'channelsIndex',
@@ -573,13 +565,15 @@ return false;
     }])
   }
 
-  async deleteChannel(channelId: string) {
-    const q = new Where('_id').eq(channelId);
-    const channel: any = (
-      await this.client.find(this.threadId, 'channels', q)
-    )[0];
+  async leaveChannel(channel: channels.Channel) {
     if (channel) {
-      return this.client.delete(this.threadId, 'channels', [channel._id]);
+      try {
+        this.client.delete(this.threadId, 'channels', [channel._id]);
+        this.channelsList.splice(this.channelsList.indexOf(channel), 1);
+      } catch (e) {
+        console.log("COULD NOT LEAVE CHANNEL")
+      }
+      return this.channelsList;
     }
   }
 

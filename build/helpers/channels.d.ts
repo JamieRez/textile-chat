@@ -17,6 +17,23 @@ export interface InviteMessageBody {
     channelId: string;
     decryptKey: string;
 }
+export interface Channel {
+    _id: string;
+    name: string;
+    threadId: string;
+    dbInfo: string;
+    indexId: string;
+    owner: string;
+}
+export interface ChannelIndex {
+    _id: string;
+    name: string;
+    threadId: string;
+    dbInfo: string;
+    indexId: string;
+    owner: string;
+    encryptKey: string;
+}
 declare const deleteChannels: (client: Client, threadId: ThreadID, channelIds: string[]) => Promise<void>;
 declare const getChannels: (client: Client, threadId: ThreadID) => Promise<{
     id: string;

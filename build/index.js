@@ -754,21 +754,19 @@ var TextileChat = /** @class */ (function () {
             });
         });
     };
-    TextileChat.prototype.deleteChannel = function (channelId) {
+    TextileChat.prototype.leaveChannel = function (channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var q, channel;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        q = new hub_1.Where('_id').eq(channelId);
-                        return [4 /*yield*/, this.client.find(this.threadId, 'channels', q)];
-                    case 1:
-                        channel = (_a.sent())[0];
-                        if (channel) {
-                            return [2 /*return*/, this.client.delete(this.threadId, 'channels', [channel._id])];
-                        }
-                        return [2 /*return*/];
+                if (channel) {
+                    try {
+                        this.client.delete(this.threadId, 'channels', [channel._id]);
+                    }
+                    catch (e) {
+                        console.log("COULD NOT LEAVE CHANNEL");
+                    }
+                    return [2 /*return*/];
                 }
+                return [2 /*return*/];
             });
         });
     };
