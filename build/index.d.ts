@@ -52,7 +52,7 @@ export default class TextileChat {
     loadContactMessages(contactDomain: string, index: number, cb: (message: messages.Message) => void): Promise<messages.Message[]>;
     archiveContactMessages(contactDomain: any, index: any, cb: any): Promise<void>;
     createChannel(channelName: string): Promise<void>;
-    leaveChannel(channel: channels.Channel): Promise<void>;
+    leaveChannel(channel: channels.Channel): Promise<any[] | undefined>;
     getChannels(cb: (channel: any) => void): Promise<any[]>;
     sendChannelInvite(contactDomain: string, channel: any): Promise<import("@textile/hub").UserMessage | undefined>;
     getChannelInvites(cb: (channelInvites: channels.InviteMessage[]) => void): Promise<any[]>;

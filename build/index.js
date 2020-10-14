@@ -191,6 +191,10 @@ var TextileChat = /** @class */ (function () {
                     case 1:
                         contact = (_a.sent())[0];
                         if (contact) {
+                            this.contactsList.splice(this.contactsList.indexOf({
+                                domain: contact.domain,
+                                id: contact._id
+                            }), 1);
                             return [2 /*return*/, this.client.delete(this.threadId, 'contacts', [contact._id])];
                         }
                         return [2 /*return*/];
@@ -760,11 +764,12 @@ var TextileChat = /** @class */ (function () {
                 if (channel) {
                     try {
                         this.client.delete(this.threadId, 'channels', [channel._id]);
+                        this.channelsList.splice(this.channelsList.indexOf(channel), 1);
                     }
                     catch (e) {
                         console.log("COULD NOT LEAVE CHANNEL");
                     }
-                    return [2 /*return*/];
+                    return [2 /*return*/, this.channelsList];
                 }
                 return [2 /*return*/];
             });
@@ -950,9 +955,7 @@ var TextileChat = /** @class */ (function () {
             var dbInfo, privateKey, e_6, e_7, threadId, q, e_8;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0:
-                        console.log("ACCEPT CHANNEL INVITE");
-                        return [4 /*yield*/, this.client.getDBInfo(this.threadId)];
+                    case 0: return [4 /*yield*/, this.client.getDBInfo(this.threadId)];
                     case 1:
                         dbInfo = _a.sent();
                         privateKey = hub_1.PrivateKey.fromString(this.identity.toString());
@@ -962,7 +965,6 @@ var TextileChat = /** @class */ (function () {
                         return [4 /*yield*/, channels.create(this.client, this.threadId, this.identity, channelInviteMessage.body)];
                     case 3:
                         _a.sent();
-                        console.log("CREATED CHANNEL");
                         return [3 /*break*/, 5];
                     case 4:
                         e_6 = _a.sent();
@@ -973,7 +975,6 @@ var TextileChat = /** @class */ (function () {
                         return [4 /*yield*/, this.client.joinFromInfo(JSON.parse(channelInviteMessage.body.dbInfo))];
                     case 6:
                         _a.sent();
-                        console.log("JOINED DB");
                         return [3 /*break*/, 8];
                     case 7:
                         e_7 = _a.sent();
@@ -992,7 +993,6 @@ var TextileChat = /** @class */ (function () {
                                 }])];
                     case 10:
                         _a.sent();
-                        console.log("CREATED MEMBER");
                         return [3 /*break*/, 12];
                     case 11:
                         e_8 = _a.sent();
@@ -1009,11 +1009,9 @@ var TextileChat = /** @class */ (function () {
                         })];
                     case 13:
                         _a.sent();
-                        console.log("SEND BACK ACCEPTED");
                         return [4 /*yield*/, this.users.deleteInboxMessage(channelInviteMessage.id)];
                     case 14:
                         _a.sent();
-                        console.log("REMOVE INVITE MESSAGE");
                         return [2 /*return*/];
                 }
             });

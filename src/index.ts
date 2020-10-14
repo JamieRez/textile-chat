@@ -143,6 +143,10 @@ return false;
       await this.client.find(this.threadId, 'contacts', q)
     )[0];
     if (contact) {
+      this.contactsList.splice(this.contactsList.indexOf({
+        domain: contact.domain,
+        id: contact._id
+      }), 1);
       return this.client.delete(this.threadId, 'contacts', [contact._id]);
     }
   }
@@ -716,7 +720,6 @@ return false;
   }
 
   async acceptChannelInvite(channelInviteMessage: channels.InviteMessage) {
-    console.log("ACCEPT CHANNEL INVITE");
     const dbInfo = await this.client.getDBInfo(this.threadId);
     const privateKey = PrivateKey.fromString(this.identity.toString());
     try {
@@ -726,13 +729,11 @@ return false;
         this.identity,
         channelInviteMessage.body,
       );
-      console.log("CREATED CHANNEL");
     } catch(e) {
       console.log(e)
     }
     try {
       await this.client.joinFromInfo(JSON.parse(channelInviteMessage.body.dbInfo));
-      console.log("JOINED DB")
     } catch(e) {
       console.log(e)
     }
@@ -748,7 +749,6 @@ return false;
           decryptKey: channelInviteMessage.body.decryptKey
         }]
       )
-      console.log("CREATED MEMBER");
     } catch(e) {
       console.log(e);
     }
@@ -761,9 +761,7 @@ return false;
       channelInviteMessage,
       domain: this.domain,
     });
-    console.log("SEND BACK ACCEPTED")
     await this.users.deleteInboxMessage(channelInviteMessage.id);
-    console.log("REMOVE INVITE MESSAGE");
   }
 
   async declineChannelInvite(channelInviteMessage: channels.InviteMessage) {
